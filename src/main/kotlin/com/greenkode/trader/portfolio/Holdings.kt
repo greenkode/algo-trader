@@ -5,13 +5,13 @@ import java.math.BigDecimal
 import java.time.LocalDateTime
 
 
-data class Holding(
+data class Holdings(
     override var timestamp: LocalDateTime? = null,
     val cash: BigDecimal,
     val commission: Double,
     val total: BigDecimal,
     override val positions: MutableMap<Symbol, BigDecimal>
-) : Position(timestamp = timestamp, positions = positions) {
+) : Positions(timestamp = timestamp, positions = positions) {
 
     private var _total: BigDecimal
         get() = field

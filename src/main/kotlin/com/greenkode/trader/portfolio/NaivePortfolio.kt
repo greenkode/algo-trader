@@ -23,10 +23,10 @@ class NaivePortfolio(
 
     val logger by LoggerDelegate()
 
-    private val currentPosition: Position
-    private val allPositions: MutableList<Position>
-    private var currentHolding: Holding
-    private val allHoldings: MutableList<Holding>
+    private val currentPositions: Positions
+    private val allPositions: MutableList<Positions>
+    private var currentHoldings: Holdings
+    private val allHoldings: MutableList<Holdings>
     private val symbols = dataHandler.symbols
 
     private val equityCurve: Table
@@ -36,10 +36,10 @@ class NaivePortfolio(
         if (startDate == null)
             startDate = dataHandler.getEarliestStartDate()
 
-        currentPosition = constructCurrentPositions()
+        currentPositions = constructCurrentPositions()
         allPositions = constructAllPositions()
         allHoldings = constructAllHoldings()
-        currentHolding = constructCurrentHoldings()
+        currentHoldings = constructCurrentHoldings()
 
         val columns = listOf(
             DateTimeColumn.create("timestamp"),
@@ -51,13 +51,13 @@ class NaivePortfolio(
         equityCurve = Table.create("Equity Curve", columns)
     }
 
-    private fun constructCurrentPositions(): Position {
+    private fun constructCurrentPositions(): Positions {
         val positions = initializePositionsForSymbols()
-        return Position(positions = positions)
+        return Positions(positions = positions)
     }
 
-    private fun constructCurrentHoldings(): Holding {
-        return Holding(
+    private fun constructCurrentHoldings(): Holdings {
+        return Holdings(
             cash = initialCapital,
             commission = 0.0001,
             total = initialCapital,
@@ -65,13 +65,13 @@ class NaivePortfolio(
         )
     }
 
-    private fun constructAllPositions(): MutableList<Position> {
-        return mutableListOf(Position(positions = initializePositionsForSymbols(), timestamp = startDate))
+    private fun constructAllPositions(): MutableList<Positions> {
+        return mutableListOf(Positions(positions = initializePositionsForSymbols(), timestamp = startDate))
     }
 
-    private fun constructAllHoldings(): MutableList<Holding> {
+    private fun constructAllHoldings(): MutableList<Holdings> {
         return mutableListOf(
-            Holding(
+            Holdings(
                 cash = initialCapital,
                 commission = 0.0001,
                 total = initialCapital,
@@ -84,27 +84,27 @@ class NaivePortfolio(
     override fun updateTimeIndex(event: Event) {
         val bars = symbols.associateBy({ it }, { dataHandler.getLatestBars(it, 1) })
         val timestamp = bars[symbols[0]]?.first()?.getDateTime(DATA_COLUMN_TIMESTAMP)!!
-        val dp = Position(
+        val dp = Positions(
             positions = initializePositionsForSymbols(),
             timestamp = timestamp
         )
 
         symbols.forEach { symbol ->
-            currentPosition.positions[symbol]?.let { dp.positions[symbol] = it }
+            currentPositions.positions[symbol]?.let { dp.positions[symbol] = it }
         }
         allPositions.add(dp)
 
-        val dh = Holding(
+        val dh = Holdings(
             positions = initializePositionsForSymbols(),
             timestamp = timestamp,
-            cash = currentHolding.cash,
-            commission = currentHolding.commission,
-            total = currentHolding.total
+            cash = currentHoldings.cash,
+            commission = currentHoldings.commission,
+            total = currentHoldings.total
         )
 
         symbols.forEach { symbol ->
             val marketValue =
-                currentPosition.positions[symbol]?.multiply(
+                currentPositions.positions[symbol]?.multiply(
                     BigDecimal.valueOf(
                         bars[symbols[0]]?.first()?.getDouble(DATA_COLUMN_CLOSE)!!
                     )
@@ -134,8 +134,8 @@ class NaivePortfolio(
     }
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
-        val currPosition = currentPosition.positions[fillEvent.symbol]
-        currentPosition.positions[fillEvent.symbol] =
+        val currPosition = currentPositions.positions[fillEvent.symbol]
+        currentPositions.positions[fillEvent.symbol] =
             currPosition?.add(fillEvent.quantity.multiply(BigDecimal.valueOf(fillEvent.orderDirection.value)))!!
     }
 
@@ -143,20 +143,20 @@ class NaivePortfolio(
 
         val fillCost = dataHandler.getLatestBars(fillEvent.symbol).first().getDouble("close")
         val cost = fillEvent.quantity.multiply(BigDecimal.valueOf(fillEvent.orderDirection.value * fillCost))
-        currentHolding = Holding(
-            timestamp = currentHolding.timestamp,
-            positions = currentHolding.positions,
-            cash = currentHolding.cash.minus(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission()))),
-            commission = currentHolding.commission + fillEvent.calculateCommission(),
-            total = currentHolding.total.min(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission())))
+        currentHoldings = Holdings(
+            timestamp = currentHoldings.timestamp,
+            positions = currentHoldings.positions,
+            cash = currentHoldings.cash.minus(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission()))),
+            commission = currentHoldings.commission + fillEvent.calculateCommission(),
+            total = currentHoldings.total.min(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission())))
         )
-        currentHolding.positions[fillEvent.symbol] = currentHolding.positions[fillEvent.symbol]?.plus(cost)!!
+        currentHoldings.positions[fillEvent.symbol] = currentHoldings.positions[fillEvent.symbol]?.plus(cost)!!
     }
 
     private fun generateNaiveOrder(signalEvent: SignalEvent): OrderEvent? {
 
         val marketQuantity = riskManager.sizePosition(signalEvent).multiply(BigDecimal.valueOf(signalEvent.strength))
-        val currentQuantity = currentPosition.positions[signalEvent.symbol]!!
+        val currentQuantity = currentPositions.positions[signalEvent.symbol]!!
         val orderType = OrderType.MKT
 
         var order: OrderEvent? = null
