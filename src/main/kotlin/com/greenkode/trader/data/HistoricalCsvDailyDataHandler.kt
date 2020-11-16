@@ -67,7 +67,7 @@ class HistoricalCsvDailyDataHandler(
 
     override fun getEarliestStartDate(): LocalDateTime {
         var earliestDate = LocalDateTime.MAX
-        symbolData.forEach { symbol, table ->
+        symbolData.forEach { _, table ->
             val date = table.first().getDateTime(DATA_COLUMN_TIMESTAMP)
             earliestDate = if (date < earliestDate) date else earliestDate
             val lDate = table.last().getDateTime(DATA_COLUMN_TIMESTAMP)

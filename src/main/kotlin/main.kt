@@ -33,12 +33,14 @@ fun main() {
                 broker.executeOrder(event)
             else if (event.type == EventTypeEnum.FILL)
                 portfolio.updateFill(event)
-
         }
     }
+
+    portfolio.printSummaryStats()
+    portfolio.createEquityCurve()
 }
 
-val DIRECTORY = "/Volumes/Seagate Expansion Drive/binance/data/1d"
+const val DIRECTORY = "/Volumes/Seagate Expansion Drive/binance/data/1d"
 val TOP_CRYPTOS = listOf(
     "BTCUSDT",
     "ETHUSDT",

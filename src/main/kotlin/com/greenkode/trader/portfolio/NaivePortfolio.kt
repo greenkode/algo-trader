@@ -8,6 +8,7 @@ import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.OrderEvent
 import com.greenkode.trader.event.SignalEvent
+import com.greenkode.trader.logger.LoggerDelegate
 import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
 import tech.tablesaw.api.Table
@@ -19,6 +20,8 @@ class NaivePortfolio(
     val dataHandler: DataHandler, val events: Queue<Event>, val riskManager: RiskManager,
     var startDate: LocalDateTime?, val initialCapital: BigDecimal
 ) : Portfolio() {
+
+    val logger by LoggerDelegate()
 
     private val currentPosition: Position
     private val allPositions: MutableList<Position>
@@ -196,7 +199,7 @@ class NaivePortfolio(
         return equityCurve
     }
 
-    fun printSummaryStats(): List<String> {
+    fun printSummaryStats() {
 
         val totalReturn = equityCurve.last().getDouble("total")
         val returns = equityCurve.doubleColumn("returns")
@@ -205,10 +208,10 @@ class NaivePortfolio(
         val sharpeRatio = createSharpeRatio(returns, 365)
         val drawdowns = createDrawdowns(pnl)
 
-        return listOf<String>(
-            "Total Return=${((totalReturn - 1.0) * 100.0)}",
-            "Sharpe Ratio=${sharpeRatio}",
-            "Max Drawdown=${(drawdowns.first * 100.0)}",
+        logger.info(
+            "Total Return=${((totalReturn - 1.0) * 100.0)}\n",
+            "Sharpe Ratio=${sharpeRatio}\n",
+            "Max Drawdown=${(drawdowns.first * 100.0)}\n",
             "Drawdown Duration=${drawdowns.second}"
         )
     }

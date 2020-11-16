@@ -12,7 +12,7 @@ fun createDrawdowns(equityCurve: DoubleColumn): Pair<Double, Double> {
     val drawDown = mutableMapOf<Int, Double>()
     val duration = mutableMapOf<Int, Double>()
 
-    equityCurve.forEachIndexed { index, localDateTime ->
+    equityCurve.forEachIndexed { index, _ ->
         val currentHighWaterMark = Math.max(highWaterMark[index - 1], equityCurve.get(index))
         highWaterMark.add(currentHighWaterMark)
         drawDown[index] = highWaterMark[index] - equityCurve.get(index)
