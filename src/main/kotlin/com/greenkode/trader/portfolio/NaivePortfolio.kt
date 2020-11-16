@@ -11,6 +11,7 @@ import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.logger.LoggerDelegate
 import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
+import tech.tablesaw.api.Row
 import tech.tablesaw.api.Table
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -43,8 +44,8 @@ class NaivePortfolio(
 
         val columns = listOf(
             DateTimeColumn.create("timestamp"),
-            DoubleColumn.create("returns"),
-            DoubleColumn.create("equity_curve"),
+            DoubleColumn.create("cash"),
+            DoubleColumn.create("commission"),
             DoubleColumn.create("total")
         )
 
@@ -128,7 +129,7 @@ class NaivePortfolio(
     override fun updateSignal(event: Event) {
         if (event.type == EventTypeEnum.SIGNAL) {
             val orderEvent = generateNaiveOrder(event as SignalEvent)
-            if(orderEvent != null)
+            if (orderEvent != null)
                 events.offer(orderEvent)
         }
     }
@@ -193,8 +194,17 @@ class NaivePortfolio(
 
     fun createEquityCurve(): Table {
 
-        equityCurve.doubleColumn("total").pctChange()
-        equityCurve.doubleColumn("equity_curve").cumProd()
+        allHoldings.forEach { holding ->
+            equityCurve.dateTimeColumn(DATA_COLUMN_TIMESTAMP).append(holding.timestamp)
+            equityCurve.doubleColumn("cash").append(holding.cash)
+            equityCurve.doubleColumn("commission").append(holding.commission)
+            equityCurve.doubleColumn("total").append(holding.total)
+        }
+        val returns = equityCurve.doubleColumn("total").pctChange().setName("returns")
+        equityCurve.addColumns(returns)
+        equityCurve.addColumns(returns.add(1).cumProd().setName("equity_curve"))
+
+        logger.debug(equityCurve.print())
 
         return equityCurve
     }
@@ -209,9 +219,9 @@ class NaivePortfolio(
         val drawdowns = createDrawdowns(pnl)
 
         logger.info(
-            "Total Return=${((totalReturn - 1.0) * 100.0)}\n",
-            "Sharpe Ratio=${sharpeRatio}\n",
-            "Max Drawdown=${(drawdowns.first * 100.0)}\n",
+            "Total Return=${((totalReturn - 1.0) * 100.0)}\n" +
+            "Sharpe Ratio=${sharpeRatio}\n" +
+            "Max Drawdown=${(drawdowns.first * 100.0)}\n" +
             "Drawdown Duration=${drawdowns.second}"
         )
     }

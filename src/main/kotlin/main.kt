@@ -36,8 +36,8 @@ fun main() {
         }
     }
 
-    portfolio.printSummaryStats()
     portfolio.createEquityCurve()
+    portfolio.printSummaryStats()
 }
 
 const val DIRECTORY = "/Volumes/Seagate Expansion Drive/binance/data/1d"
