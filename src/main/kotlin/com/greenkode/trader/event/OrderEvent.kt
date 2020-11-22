@@ -12,13 +12,10 @@ class OrderEvent(
     val orderType: OrderType,
     val quantity: Double,
     val direction: OrderDirection,
-    val timestamp: LocalDateTime
+    val timestamp: LocalDateTime,
+    val price: Double
 ) : Event {
 
     override val type: EventTypeEnum
         get() = EventTypeEnum.ORDER
-
-    override fun toString(): String {
-        return "${timestamp.toLocalDate()} - Order: Symbol=$symbol, Type=$orderType, Quantity=$quantity, Direction=$direction"
-    }
 }

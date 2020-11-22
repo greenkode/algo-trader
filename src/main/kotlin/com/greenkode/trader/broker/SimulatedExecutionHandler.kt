@@ -19,11 +19,11 @@ class SimulatedExecutionHandler(private val events: Queue<Event>) : ExecutionHan
                 order.symbol,
                 order.timestamp,
                 "Binance",
+                order.orderType,
                 order.quantity,
                 order.direction,
-                0.0
+                order.quantity * order.price
             )
-            logger.info("$order")
             events.offer(fillEvent)
         }
     }

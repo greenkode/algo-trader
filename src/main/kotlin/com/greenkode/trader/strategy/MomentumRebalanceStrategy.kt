@@ -41,7 +41,10 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
         events.add(RebalanceEvent(rankingTable, series))
 
         dataHandler.symbols.forEach { symbol ->
-            events.add(SignalEvent(symbol, currentDate, OrderDirection.BUY, 1.0))
+            if (rankingTable.getOrDefault(symbol, 0.0) > 40)
+                events.add(SignalEvent(symbol, currentDate, OrderDirection.BUY, 1.0))
+            else if (rankingTable.getOrDefault(symbol, 0.0) != 0.0)
+                events.add(SignalEvent(symbol, currentDate, OrderDirection.EXIT, 1.0))
         }
     }
 

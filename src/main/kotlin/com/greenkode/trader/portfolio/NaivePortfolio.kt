@@ -21,11 +21,11 @@ val Double.Companion.ZERO: Double
     }
 
 class NaivePortfolio(
-    val dataHandler: DataHandler, val events: Queue<Event>, val riskManager: RiskManager,
-    var startDate: LocalDateTime?, val initialCapital: Double
+    private val dataHandler: DataHandler, private val events: Queue<Event>, private val riskManager: RiskManager,
+    private var startDate: LocalDateTime?, private val initialCapital: Double
 ) : Portfolio() {
 
-    val logger by LoggerDelegate()
+    private val logger by LoggerDelegate()
 
     private val currentPositions: Positions
     private val allPositions: MutableList<Positions>
@@ -46,10 +46,10 @@ class NaivePortfolio(
         currentHoldings = constructCurrentHoldings()
 
         val columns = listOf(
-            DateTimeColumn.create("timestamp"),
-            DoubleColumn.create("cash"),
-            DoubleColumn.create("commission"),
-            DoubleColumn.create("total")
+            DateTimeColumn.create(DATA_COLUMN_TIMESTAMP),
+            DoubleColumn.create(EQUITY_CURVE_CASH),
+            DoubleColumn.create(EQUITY_CURVE_COMMISSION),
+            DoubleColumn.create(EQUITY_CURVE_TOTAL)
         )
 
         equityCurve = Table.create("Equity Curve", columns)
@@ -63,7 +63,7 @@ class NaivePortfolio(
     private fun constructCurrentHoldings(): Holdings {
         return Holdings(
             cash = initialCapital,
-            commission = 0.001,
+            commission = 0.0,
             total = initialCapital,
             positions = initializePositionsForSymbols()
         )
@@ -77,7 +77,7 @@ class NaivePortfolio(
         return mutableListOf(
             Holdings(
                 cash = initialCapital,
-                commission = 0.001,
+                commission = 0.0,
                 total = initialCapital,
                 positions = initializePositionsForSymbols(),
                 timestamp = startDate
@@ -103,16 +103,14 @@ class NaivePortfolio(
             timestamp = timestamp,
             cash = currentHoldings.cash,
             commission = currentHoldings.commission,
-            total = currentHoldings.total
+            total = currentHoldings.cash
         )
 
         symbols.forEach { symbol ->
-            val marketValue =
-                currentPositions.positions[symbol]!! * bars[symbols[0]]?.first()?.getDouble(DATA_COLUMN_CLOSE)!!
+            val marketValue = currentPositions.positions[symbol]!! * getLatestClose(symbol)
             dh.positions[symbol] = marketValue
-            dh.addToTotal(marketValue)
+            dh.total += marketValue
         }
-
         allHoldings.add(dh)
     }
 
@@ -137,54 +135,69 @@ class NaivePortfolio(
         val currPosition = currentPositions.positions[fillEvent.symbol]
         currentPositions.positions[fillEvent.symbol] =
             currPosition!! + fillEvent.quantity * fillEvent.orderDirection.value
+        currentPositions.timestamp = fillEvent.timeIndex
     }
 
     private fun updateHoldingsFromFill(fillEvent: FillEvent) {
-
-        val cost = fillEvent.quantity / (fillEvent.orderDirection.value * getLatestClose(fillEvent.symbol))
+        val closePrice = getLatestClose(fillEvent.symbol)
+        val cost = fillEvent.quantity * fillEvent.orderDirection.value * closePrice
+        currentHoldings.positions[fillEvent.symbol] = currentHoldings.positions[fillEvent.symbol]!! + cost
         currentHoldings = Holdings(
-            timestamp = currentHoldings.timestamp,
+            timestamp = fillEvent.timeIndex,
             positions = currentHoldings.positions,
-            cash = currentHoldings.cash.minus(cost + fillEvent.calculateCommission()),
             commission = currentHoldings.commission + fillEvent.calculateCommission(),
+            cash = currentHoldings.cash - (cost + fillEvent.calculateCommission()),
             total = currentHoldings.total - (cost + fillEvent.calculateCommission())
         )
-        currentHoldings.positions[fillEvent.symbol] = currentHoldings.positions[fillEvent.symbol]?.plus(cost)!!
+
+        logger.info(
+            "${fillEvent.timeIndex} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
+                    "Direction=${fillEvent.orderDirection}, Quantity=${fillEvent.quantity}, Price=${closePrice}, " +
+                    "Commission=${fillEvent.calculateCommission()}, Fill Cost=${fillEvent.fillCost}"
+        )
     }
 
     private fun generateNaiveOrder(signalEvent: SignalEvent): OrderEvent? {
 
-        val fillCost = getLatestClose(signalEvent.symbol)
-        val marketQuantity = (riskManager.sizePosition(signalEvent) * currentHoldings.total) / fillCost
+        val closePrice = getLatestClose(signalEvent.symbol)
+        val marketQuantity = (riskManager.sizePosition(signalEvent) * currentHoldings.total) / closePrice
 
         val currentQuantity = currentPositions.positions[signalEvent.symbol]!!
         val orderType = OrderType.MKT
 
         var order: OrderEvent? = null
-        if (signalEvent.direction == OrderDirection.BUY)
-            order = createOrder(signalEvent, orderType, marketQuantity)
+        if (signalEvent.direction == OrderDirection.BUY) order =
+            createOrder(signalEvent, orderType, marketQuantity, closePrice)
 
         if (signalEvent.direction == OrderDirection.EXIT) {
             if (currentQuantity > Double.ZERO)
-                order = createOrder(signalEvent, orderType, currentQuantity)
+                order = createOrder(signalEvent, orderType, currentQuantity, closePrice)
             else if (currentQuantity < Double.ZERO)
-                order = createOrder(signalEvent, orderType, currentQuantity)
+                order = createOrder(signalEvent, orderType, currentQuantity, closePrice)
         }
         return order
     }
 
     private fun getLatestClose(symbol: Symbol): Double {
-        val close = dataHandler.getLatestBars(symbol).first()
-        return close.getDouble(DATA_COLUMN_CLOSE)
+        val close = dataHandler.getLatestBars(symbol)
+        if (!close.isEmpty)
+            return close.first().getDouble(DATA_COLUMN_CLOSE)
+        return 0.0
     }
 
-    private fun createOrder(signalEvent: SignalEvent, orderType: OrderType, currentQuantity: Double): OrderEvent {
+    private fun createOrder(
+        signalEvent: SignalEvent,
+        orderType: OrderType,
+        currentQuantity: Double,
+        price: Double
+    ): OrderEvent {
         return OrderEvent(
             symbol = signalEvent.symbol,
             orderType = orderType,
             quantity = currentQuantity,
             direction = signalEvent.direction,
-            timestamp = signalEvent.timestamp
+            timestamp = signalEvent.timestamp,
+            price = price
         )
     }
 
@@ -192,13 +205,13 @@ class NaivePortfolio(
 
         allHoldings.forEach { holding ->
             equityCurve.dateTimeColumn(DATA_COLUMN_TIMESTAMP).append(holding.timestamp)
-            equityCurve.doubleColumn("cash").append(holding.cash)
-            equityCurve.doubleColumn("commission").append(holding.commission)
-            equityCurve.doubleColumn("total").append(holding.total)
+            equityCurve.doubleColumn(EQUITY_CURVE_CASH).append(holding.cash)
+            equityCurve.doubleColumn(EQUITY_CURVE_COMMISSION).append(holding.commission)
+            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.total)
         }
-        val returns = equityCurve.doubleColumn("total").pctChange().setName("returns")
+        val returns = equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).pctChange().setName(EQUITY_CURVE_RETURNS)
         equityCurve.addColumns(returns)
-        equityCurve.addColumns(returns.add(1).cumProd().setName("equity_curve"))
+        equityCurve.addColumns(returns.add(1).cumProd().setName(EQUITY_CURVE_CURVE))
 
         logger.debug(equityCurve.print())
 
@@ -207,18 +220,18 @@ class NaivePortfolio(
 
     fun printSummaryStats() {
 
-        val totalReturn = equityCurve.last().getDouble("total")
-        val returns = equityCurve.doubleColumn("returns")
-        val pnl = equityCurve.doubleColumn("equity_curve")
+        val totalReturn = equityCurve.last().getDouble(EQUITY_CURVE_TOTAL)
+        val returns = equityCurve.doubleColumn(EQUITY_CURVE_RETURNS)
+        val pnl = equityCurve.doubleColumn(EQUITY_CURVE_CURVE)
 
         val sharpeRatio = createSharpeRatio(returns, 365)
-        val drawdowns = createDrawdowns(pnl)
+        val drawDowns = createDrawdowns(pnl)
 
         logger.info(
             "Total Return=${((totalReturn - 1.0) * 100.0)}\n" +
                     "Sharpe Ratio=${sharpeRatio}\n" +
-                    "Max Drawdown=${(drawdowns.first * 100.0)}\n" +
-                    "Drawdown Duration=${drawdowns.second}"
+                    "Max DrawDown=${(drawDowns.first * 100.0)}\n" +
+                    "DrawDown Duration=${drawDowns.second}"
         )
     }
 }
