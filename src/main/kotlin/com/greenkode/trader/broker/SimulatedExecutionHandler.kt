@@ -5,7 +5,6 @@ import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.OrderEvent
 import com.greenkode.trader.logger.LoggerDelegate
-import java.math.BigDecimal
 import java.util.*
 
 
@@ -22,7 +21,7 @@ class SimulatedExecutionHandler(private val events: Queue<Event>) : ExecutionHan
                 "Binance",
                 order.quantity,
                 order.direction,
-                BigDecimal.valueOf(0.1)
+                0.0
             )
             logger.info("$order")
             events.offer(fillEvent)

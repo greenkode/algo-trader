@@ -11,7 +11,7 @@ interface DataHandler {
     fun continueBacktest(): Boolean
 
     fun updateBars()
-    fun getLatestBars(symbol: Symbol, number: Int = 1): Table
+    fun getLatestBars(symbol: Symbol, window: Int = 1): Table
     fun getEarliestStartDate(): LocalDateTime
 }
 

@@ -60,9 +60,12 @@ class HistoricalCsvDailyDataHandler(
         }
     }
 
-    override fun getLatestBars(symbol: Symbol, number: Int): Table {
+    override fun getLatestBars(symbol: Symbol, window: Int): Table {
         val table = symbolData[symbol]!!
-        return table.where(table.dateTimeColumn(DATA_COLUMN_TIMESTAMP).isEqualTo(currentDate))
+        return table.where(
+            table.dateTimeColumn(DATA_COLUMN_TIMESTAMP)
+                .isBetweenIncluding(currentDate.minusDays(window.toLong() - 1), currentDate)
+        )
     }
 
     override fun getEarliestStartDate(): LocalDateTime {

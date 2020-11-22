@@ -5,17 +5,16 @@ import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.portfolio.NaivePortfolio
 import com.greenkode.trader.portfolio.RiskManager
-import com.greenkode.trader.strategy.BuyAndHoldStrategy
-import java.math.BigDecimal
+import com.greenkode.trader.strategy.MomentumRebalanceStrategy
 import java.util.*
 
 fun main() {
 
     val events: Queue<Event> = LinkedList()
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
-    val strategy = BuyAndHoldStrategy(dataHandler, events)
+    val strategy = MomentumRebalanceStrategy(dataHandler, events)
     val riskManager = RiskManager()
-    val portfolio = NaivePortfolio(dataHandler, events, riskManager, null, BigDecimal.valueOf(100000))
+    val portfolio = NaivePortfolio(dataHandler, events, riskManager, null, 100000.0)
     val broker = SimulatedExecutionHandler(events)
 
     while (dataHandler.continueBacktest()) {
@@ -27,6 +26,8 @@ fun main() {
             if (event.type == EventTypeEnum.MARKET) {
                 strategy.calculateSignals(event)
                 portfolio.updateTimeIndex(event)
+            } else if (event.type == EventTypeEnum.REBALANCE) {
+                riskManager.allocateWeights(event)
             } else if (event.type == EventTypeEnum.SIGNAL)
                 portfolio.updateSignal(event)
             else if (event.type == EventTypeEnum.ORDER)

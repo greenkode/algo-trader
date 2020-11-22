@@ -11,15 +11,18 @@ import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.logger.LoggerDelegate
 import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
-import tech.tablesaw.api.Row
 import tech.tablesaw.api.Table
-import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
 
+val Double.Companion.ZERO: Double
+    get() {
+        return 0.0
+    }
+
 class NaivePortfolio(
     val dataHandler: DataHandler, val events: Queue<Event>, val riskManager: RiskManager,
-    var startDate: LocalDateTime?, val initialCapital: BigDecimal
+    var startDate: LocalDateTime?, val initialCapital: Double
 ) : Portfolio() {
 
     val logger by LoggerDelegate()
@@ -60,7 +63,7 @@ class NaivePortfolio(
     private fun constructCurrentHoldings(): Holdings {
         return Holdings(
             cash = initialCapital,
-            commission = 0.0001,
+            commission = 0.001,
             total = initialCapital,
             positions = initializePositionsForSymbols()
         )
@@ -74,7 +77,7 @@ class NaivePortfolio(
         return mutableListOf(
             Holdings(
                 cash = initialCapital,
-                commission = 0.0001,
+                commission = 0.001,
                 total = initialCapital,
                 positions = initializePositionsForSymbols(),
                 timestamp = startDate
@@ -105,11 +108,7 @@ class NaivePortfolio(
 
         symbols.forEach { symbol ->
             val marketValue =
-                currentPositions.positions[symbol]?.multiply(
-                    BigDecimal.valueOf(
-                        bars[symbols[0]]?.first()?.getDouble(DATA_COLUMN_CLOSE)!!
-                    )
-                ) ?: BigDecimal.ZERO
+                currentPositions.positions[symbol]!! * bars[symbols[0]]?.first()?.getDouble(DATA_COLUMN_CLOSE)!!
             dh.positions[symbol] = marketValue
             dh.addToTotal(marketValue)
         }
@@ -117,7 +116,7 @@ class NaivePortfolio(
         allHoldings.add(dh)
     }
 
-    private fun initializePositionsForSymbols() = symbols.associateBy({ it }, { BigDecimal.ZERO }).toMutableMap()
+    private fun initializePositionsForSymbols() = symbols.associateBy({ it }, { Double.ZERO }).toMutableMap()
 
     override fun updateFill(event: Event) {
         if (event.type == EventTypeEnum.FILL) {
@@ -137,59 +136,56 @@ class NaivePortfolio(
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         val currPosition = currentPositions.positions[fillEvent.symbol]
         currentPositions.positions[fillEvent.symbol] =
-            currPosition?.add(fillEvent.quantity.multiply(BigDecimal.valueOf(fillEvent.orderDirection.value)))!!
+            currPosition!! + fillEvent.quantity * fillEvent.orderDirection.value
     }
 
     private fun updateHoldingsFromFill(fillEvent: FillEvent) {
 
-        val fillCost = dataHandler.getLatestBars(fillEvent.symbol).first().getDouble("close")
-        val cost = fillEvent.quantity.multiply(BigDecimal.valueOf(fillEvent.orderDirection.value * fillCost))
+        val cost = fillEvent.quantity / (fillEvent.orderDirection.value * getLatestClose(fillEvent.symbol))
         currentHoldings = Holdings(
             timestamp = currentHoldings.timestamp,
             positions = currentHoldings.positions,
-            cash = currentHoldings.cash.minus(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission()))),
+            cash = currentHoldings.cash.minus(cost + fillEvent.calculateCommission()),
             commission = currentHoldings.commission + fillEvent.calculateCommission(),
-            total = currentHoldings.total.min(cost.plus(BigDecimal.valueOf(fillEvent.calculateCommission())))
+            total = currentHoldings.total - (cost + fillEvent.calculateCommission())
         )
         currentHoldings.positions[fillEvent.symbol] = currentHoldings.positions[fillEvent.symbol]?.plus(cost)!!
     }
 
     private fun generateNaiveOrder(signalEvent: SignalEvent): OrderEvent? {
 
-        val marketQuantity = riskManager.sizePosition(signalEvent).multiply(BigDecimal.valueOf(signalEvent.strength))
+        val fillCost = getLatestClose(signalEvent.symbol)
+        val marketQuantity = (riskManager.sizePosition(signalEvent) * currentHoldings.total) / fillCost
+
         val currentQuantity = currentPositions.positions[signalEvent.symbol]!!
         val orderType = OrderType.MKT
 
         var order: OrderEvent? = null
-        if (currentQuantity.toDouble() == 0.0) {
-            order = OrderEvent(
-                symbol = signalEvent.symbol,
-                orderType = orderType,
-                quantity = marketQuantity,
-                direction = signalEvent.direction,
-                timestamp = signalEvent.timestamp
-            )
-        }
+        if (signalEvent.direction == OrderDirection.BUY)
+            order = createOrder(signalEvent, orderType, marketQuantity)
 
         if (signalEvent.direction == OrderDirection.EXIT) {
-            if (currentQuantity > BigDecimal.ZERO)
-                order = OrderEvent(
-                    symbol = signalEvent.symbol,
-                    orderType = orderType,
-                    quantity = currentQuantity.abs(),
-                    direction = OrderDirection.SELL,
-                    timestamp = signalEvent.timestamp
-                )
-            else if (currentQuantity < BigDecimal.ZERO)
-                order = OrderEvent(
-                    symbol = signalEvent.symbol,
-                    orderType = orderType,
-                    quantity = currentQuantity.abs(),
-                    direction = OrderDirection.BUY,
-                    timestamp = signalEvent.timestamp
-                )
+            if (currentQuantity > Double.ZERO)
+                order = createOrder(signalEvent, orderType, currentQuantity)
+            else if (currentQuantity < Double.ZERO)
+                order = createOrder(signalEvent, orderType, currentQuantity)
         }
         return order
+    }
+
+    private fun getLatestClose(symbol: Symbol): Double {
+        val close = dataHandler.getLatestBars(symbol).first()
+        return close.getDouble(DATA_COLUMN_CLOSE)
+    }
+
+    private fun createOrder(signalEvent: SignalEvent, orderType: OrderType, currentQuantity: Double): OrderEvent {
+        return OrderEvent(
+            symbol = signalEvent.symbol,
+            orderType = orderType,
+            quantity = currentQuantity,
+            direction = signalEvent.direction,
+            timestamp = signalEvent.timestamp
+        )
     }
 
     fun createEquityCurve(): Table {
@@ -220,9 +216,9 @@ class NaivePortfolio(
 
         logger.info(
             "Total Return=${((totalReturn - 1.0) * 100.0)}\n" +
-            "Sharpe Ratio=${sharpeRatio}\n" +
-            "Max Drawdown=${(drawdowns.first * 100.0)}\n" +
-            "Drawdown Duration=${drawdowns.second}"
+                    "Sharpe Ratio=${sharpeRatio}\n" +
+                    "Max Drawdown=${(drawdowns.first * 100.0)}\n" +
+                    "Drawdown Duration=${drawdowns.second}"
         )
     }
 }
