@@ -1,7 +1,5 @@
 package com.greenkode.trader.portfolio
 
-import com.greenkode.trader.analysis.createDrawdowns
-import com.greenkode.trader.analysis.createSharpeRatio
 import com.greenkode.trader.data.DataHandler
 import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.Event
@@ -9,9 +7,6 @@ import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.OrderEvent
 import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.logger.LoggerDelegate
-import tech.tablesaw.api.DateTimeColumn
-import tech.tablesaw.api.DoubleColumn
-import tech.tablesaw.api.Table
 import java.time.LocalDateTime
 import java.util.*
 
@@ -20,7 +15,7 @@ val Double.Companion.ZERO: Double
         return 0.0
     }
 
-class NaivePortfolio(
+class RebalancePortfolio(
     private val dataHandler: DataHandler, private val events: Queue<Event>, private val riskManager: RiskManager,
     private var startDate: LocalDateTime?, private val initialCapital: Double
 ) : Portfolio() {
@@ -33,7 +28,6 @@ class NaivePortfolio(
     private val allHoldings: MutableList<Holdings>
     private val symbols = dataHandler.symbols
 
-    private val equityCurve: Table
 
     init {
 
@@ -44,15 +38,6 @@ class NaivePortfolio(
         allPositions = constructAllPositions()
         allHoldings = constructAllHoldings()
         currentHoldings = constructCurrentHoldings()
-
-        val columns = listOf(
-            DateTimeColumn.create(DATA_COLUMN_TIMESTAMP),
-            DoubleColumn.create(EQUITY_CURVE_CASH),
-            DoubleColumn.create(EQUITY_CURVE_COMMISSION),
-            DoubleColumn.create(EQUITY_CURVE_TOTAL)
-        )
-
-        equityCurve = Table.create("Equity Curve", columns)
     }
 
     private fun constructCurrentPositions(): Positions {
@@ -131,6 +116,10 @@ class NaivePortfolio(
         }
     }
 
+    override fun getHoldings(): List<Holdings> {
+        return allHoldings
+    }
+
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         val currPosition = currentPositions.positions[fillEvent.symbol]
         currentPositions.positions[fillEvent.symbol] =
@@ -198,40 +187,6 @@ class NaivePortfolio(
             direction = signalEvent.direction,
             timestamp = signalEvent.timestamp,
             price = price
-        )
-    }
-
-    fun createEquityCurve(): Table {
-
-        allHoldings.forEach { holding ->
-            equityCurve.dateTimeColumn(DATA_COLUMN_TIMESTAMP).append(holding.timestamp)
-            equityCurve.doubleColumn(EQUITY_CURVE_CASH).append(holding.cash)
-            equityCurve.doubleColumn(EQUITY_CURVE_COMMISSION).append(holding.commission)
-            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.total)
-        }
-        val returns = equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).pctChange().setName(EQUITY_CURVE_RETURNS)
-        equityCurve.addColumns(returns)
-        equityCurve.addColumns(returns.add(1).cumProd().setName(EQUITY_CURVE_CURVE))
-
-        logger.debug(equityCurve.print())
-
-        return equityCurve
-    }
-
-    fun printSummaryStats() {
-
-        val totalReturn = equityCurve.last().getDouble(EQUITY_CURVE_TOTAL)
-        val returns = equityCurve.doubleColumn(EQUITY_CURVE_RETURNS)
-        val pnl = equityCurve.doubleColumn(EQUITY_CURVE_CURVE)
-
-        val sharpeRatio = createSharpeRatio(returns, 365)
-        val drawDowns = createDrawdowns(pnl)
-
-        logger.info(
-            "Total Return=${((totalReturn - 1.0) * 100.0)}\n" +
-                    "Sharpe Ratio=${sharpeRatio}\n" +
-                    "Max DrawDown=${(drawDowns.first * 100.0)}\n" +
-                    "DrawDown Duration=${drawDowns.second}"
         )
     }
 }

@@ -1,9 +1,10 @@
+import com.greenkode.trader.analysis.Performance
 import com.greenkode.trader.broker.SimulatedExecutionHandler
 import com.greenkode.trader.data.HistoricalCsvDailyDataHandler
 import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
-import com.greenkode.trader.portfolio.NaivePortfolio
+import com.greenkode.trader.portfolio.RebalancePortfolio
 import com.greenkode.trader.portfolio.RiskManager
 import com.greenkode.trader.strategy.MomentumRebalanceStrategy
 import java.util.*
@@ -14,8 +15,9 @@ fun main() {
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
     val strategy = MomentumRebalanceStrategy(dataHandler, events)
     val riskManager = RiskManager()
-    val portfolio = NaivePortfolio(dataHandler, events, riskManager, null, 100000.0)
+    val portfolio = RebalancePortfolio(dataHandler, events, riskManager, null, 100000.0)
     val broker = SimulatedExecutionHandler(events)
+    val performance = Performance()
 
     while (dataHandler.continueBacktest()) {
 
@@ -37,8 +39,8 @@ fun main() {
         }
     }
 
-    portfolio.createEquityCurve()
-    portfolio.printSummaryStats()
+    performance.createEquityCurve(portfolio.getHoldings())
+    performance.printSummaryStats()
 }
 
 const val DIRECTORY = "/Volumes/Seagate Expansion Drive/binance/data/1d"

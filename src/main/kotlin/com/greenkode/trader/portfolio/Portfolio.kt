@@ -8,4 +8,5 @@ abstract class Portfolio {
     abstract fun updateFill(event: Event)
 
     abstract fun updateSignal(event: Event)
+    abstract fun getHoldings(): List<Holdings>
 }
