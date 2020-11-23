@@ -7,6 +7,7 @@ import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
 import tech.tablesaw.api.Table
 import kotlin.math.max
+import kotlin.math.sqrt
 
 class Performance {
 
@@ -26,11 +27,11 @@ class Performance {
         equityCurve = Table.create("Equity Curve", columns)
     }
 
-    fun createSharpeRatio(equityCurve: DoubleColumn, periods: Int = 252): Double {
-        return Math.sqrt(periods.toDouble()) * equityCurve.mean() / equityCurve.standardDeviation()
+    private fun createSharpeRatio(equityCurve: DoubleColumn, periods: Int = 252): Double {
+        return sqrt(periods.toDouble()) * equityCurve.mean() / equityCurve.standardDeviation()
     }
 
-    fun createDrawDowns(equityCurve: DoubleColumn): Pair<Double, Double> {
+    private fun createDrawDowns(equityCurve: DoubleColumn): Pair<Double, Double> {
 
         val highWaterMark = mutableListOf(0.0)
         val drawDown = mutableMapOf<Int, Double>()
@@ -52,9 +53,9 @@ class Performance {
 
         allHoldings.forEach { holding ->
             equityCurve.dateTimeColumn(DATA_COLUMN_TIMESTAMP).append(holding.timestamp)
-            equityCurve.doubleColumn(EQUITY_CURVE_CASH).append(holding.cash)
-            equityCurve.doubleColumn(EQUITY_CURVE_COMMISSION).append(holding.commission)
-            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.total)
+            equityCurve.doubleColumn(EQUITY_CURVE_CASH).append(holding.getCash())
+            equityCurve.doubleColumn(EQUITY_CURVE_COMMISSION).append(holding.getCommissions())
+            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.getTotal())
         }
         val returns = equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).pctChange().setName(EQUITY_CURVE_RETURNS)
         equityCurve.addColumns(returns)

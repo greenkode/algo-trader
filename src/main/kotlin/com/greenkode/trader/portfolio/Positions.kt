@@ -1,9 +1,14 @@
 package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.Symbol
+import com.greenkode.trader.domain.ZERO
 import java.time.LocalDateTime
 
-open class Positions(
-    open var timestamp: LocalDateTime? = null,
-    open val positions: MutableMap<Symbol, Double>
-)
+class Positions(val timestamp: LocalDateTime, symbols: List<Symbol>) {
+
+    val positions: MutableMap<Symbol, Double> = symbols.associateBy({ it }, { Double.ZERO }).toMutableMap()
+
+    fun setPositionQuantity(symbol: Symbol, quantity: Double) {
+        positions[symbol] = quantity
+    }
+}

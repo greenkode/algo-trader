@@ -2,6 +2,7 @@ package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
+import com.greenkode.trader.domain.ZERO
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.RebalanceEvent
 import com.greenkode.trader.event.SignalEvent

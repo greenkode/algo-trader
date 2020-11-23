@@ -4,6 +4,8 @@ import com.greenkode.trader.data.HistoricalCsvDailyDataHandler
 import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
+import com.greenkode.trader.portfolio.HoldingsContainer
+import com.greenkode.trader.portfolio.PositionsContainer
 import com.greenkode.trader.portfolio.RebalancePortfolio
 import com.greenkode.trader.portfolio.RiskManager
 import com.greenkode.trader.strategy.MomentumRebalanceStrategy
@@ -15,7 +17,11 @@ fun main() {
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
     val strategy = MomentumRebalanceStrategy(dataHandler, events)
     val riskManager = RiskManager()
-    val portfolio = RebalancePortfolio(dataHandler, events, riskManager, null, 100000.0)
+    val portfolio =
+        RebalancePortfolio(
+            dataHandler, events, riskManager, null, 100000.0,
+            PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
+        )
     val broker = SimulatedExecutionHandler(events)
     val performance = Performance()
 

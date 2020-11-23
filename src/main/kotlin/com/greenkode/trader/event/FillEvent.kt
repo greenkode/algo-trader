@@ -7,7 +7,7 @@ import com.greenkode.trader.domain.Symbol
 import java.time.LocalDateTime
 
 class FillEvent(
-    val symbol: Symbol, val timeIndex: LocalDateTime, val exchange: String, val orderType: OrderType,
+    val symbol: Symbol, val timestamp: LocalDateTime, val exchange: String, val orderType: OrderType,
     val quantity: Double, val orderDirection: OrderDirection, val fillCost: Double
 ) : Event {
     override val type: EventTypeEnum

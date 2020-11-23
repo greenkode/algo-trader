@@ -10,96 +10,32 @@ import com.greenkode.trader.logger.LoggerDelegate
 import java.time.LocalDateTime
 import java.util.*
 
-val Double.Companion.ZERO: Double
-    get() {
-        return 0.0
-    }
-
 class RebalancePortfolio(
-    private val dataHandler: DataHandler, private val events: Queue<Event>, private val riskManager: RiskManager,
-    private var startDate: LocalDateTime?, private val initialCapital: Double
+    private val dataHandler: DataHandler,
+    private val events: Queue<Event>,
+    private val riskManager: RiskManager,
+    private var startDate: LocalDateTime?,
+    private val initialCapital: Double,
+    private val positionsContainer: PositionsContainer,
+    private val holdingsContainer: HoldingsContainer
 ) : Portfolio() {
 
     private val logger by LoggerDelegate()
-
-    private val currentPositions: Positions
-    private val allPositions: MutableList<Positions>
-    private var currentHoldings: Holdings
-    private val allHoldings: MutableList<Holdings>
     private val symbols = dataHandler.symbols
 
 
     init {
-
         if (startDate == null)
             startDate = dataHandler.getEarliestStartDate()
-
-        currentPositions = constructCurrentPositions()
-        allPositions = constructAllPositions()
-        allHoldings = constructAllHoldings()
-        currentHoldings = constructCurrentHoldings()
-    }
-
-    private fun constructCurrentPositions(): Positions {
-        val positions = initializePositionsForSymbols()
-        return Positions(positions = positions)
-    }
-
-    private fun constructCurrentHoldings(): Holdings {
-        return Holdings(
-            cash = initialCapital,
-            commission = 0.0,
-            total = initialCapital,
-            positions = initializePositionsForSymbols()
-        )
-    }
-
-    private fun constructAllPositions(): MutableList<Positions> {
-        return mutableListOf(Positions(positions = initializePositionsForSymbols(), timestamp = startDate))
-    }
-
-    private fun constructAllHoldings(): MutableList<Holdings> {
-        return mutableListOf(
-            Holdings(
-                cash = initialCapital,
-                commission = 0.0,
-                total = initialCapital,
-                positions = initializePositionsForSymbols(),
-                timestamp = startDate
-            )
-        )
     }
 
     override fun updateTimeIndex(event: Event) {
         val bars = symbols.associateBy({ it }, { dataHandler.getLatestBars(it, 1) })
         val timestamp = bars[symbols[0]]?.first()?.getDateTime(DATA_COLUMN_TIMESTAMP)!!
-        val dp = Positions(
-            positions = initializePositionsForSymbols(),
-            timestamp = timestamp
-        )
-
-        symbols.forEach { symbol ->
-            currentPositions.positions[symbol]?.let { dp.positions[symbol] = it }
-        }
-        allPositions.add(dp)
-
-        val dh = Holdings(
-            positions = initializePositionsForSymbols(),
-            timestamp = timestamp,
-            cash = currentHoldings.cash,
-            commission = currentHoldings.commission,
-            total = currentHoldings.cash
-        )
-
-        symbols.forEach { symbol ->
-            val marketValue = currentPositions.positions[symbol]!! * getLatestClose(symbol)
-            dh.positions[symbol] = marketValue
-            dh.total += marketValue
-        }
-        allHoldings.add(dh)
+        positionsContainer.newRecord(timestamp)
+        holdingsContainer.newRecord(timestamp, positionsContainer.getCurrentPositions(), bars)
     }
 
-    private fun initializePositionsForSymbols() = symbols.associateBy({ it }, { Double.ZERO }).toMutableMap()
 
     override fun updateFill(event: Event) {
         if (event.type == EventTypeEnum.FILL) {
@@ -117,30 +53,25 @@ class RebalancePortfolio(
     }
 
     override fun getHoldings(): List<Holdings> {
-        return allHoldings
+        return holdingsContainer.getHoldingsHistory()
     }
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
-        val currPosition = currentPositions.positions[fillEvent.symbol]
-        currentPositions.positions[fillEvent.symbol] =
-            currPosition!! + fillEvent.quantity * fillEvent.orderDirection.value
-        currentPositions.timestamp = fillEvent.timeIndex
+        positionsContainer.updateQuantity(
+            fillEvent.symbol,
+            fillEvent.timestamp,
+            fillEvent.quantity * fillEvent.orderDirection.value
+        )
     }
 
     private fun updateHoldingsFromFill(fillEvent: FillEvent) {
         val closePrice = getLatestClose(fillEvent.symbol)
         val cost = fillEvent.quantity * fillEvent.orderDirection.value * closePrice
-        currentHoldings.positions[fillEvent.symbol] = currentHoldings.positions[fillEvent.symbol]!! + cost
-        currentHoldings = Holdings(
-            timestamp = fillEvent.timeIndex,
-            positions = currentHoldings.positions,
-            commission = currentHoldings.commission + fillEvent.calculateCommission(),
-            cash = currentHoldings.cash - (cost + fillEvent.calculateCommission()),
-            total = currentHoldings.total - (cost + fillEvent.calculateCommission())
-        )
+
+        holdingsContainer.updateHoldings(fillEvent.timestamp, cost, positionsContainer.getCurrentPositions())
 
         logger.info(
-            "${fillEvent.timeIndex} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
+            "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
                     "Direction=${fillEvent.orderDirection}, Quantity=${fillEvent.quantity}, Price=${closePrice}, " +
                     "Commission=${fillEvent.calculateCommission()}, Fill Cost=${fillEvent.fillCost}"
         )
@@ -149,9 +80,9 @@ class RebalancePortfolio(
     private fun generateNaiveOrder(signalEvent: SignalEvent): OrderEvent? {
 
         val closePrice = getLatestClose(signalEvent.symbol)
-        val marketQuantity = (riskManager.sizePosition(signalEvent) * currentHoldings.total) / closePrice
+        val marketQuantity = (riskManager.sizePosition(signalEvent) * holdingsContainer.getCurrentTotal()) / closePrice
 
-        val currentQuantity = currentPositions.positions[signalEvent.symbol]!!
+        val currentQuantity = positionsContainer.getCurrentQuantity()
         val orderType = OrderType.MKT
 
         var order: OrderEvent? = null
