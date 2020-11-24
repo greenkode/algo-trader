@@ -4,13 +4,10 @@ import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.OrderEvent
-import com.greenkode.trader.logger.LoggerDelegate
 import java.util.*
 
 
 class SimulatedExecutionHandler(private val events: Queue<Event>) : ExecutionHandler {
-
-    val logger by LoggerDelegate()
 
     override fun executeOrder(event: Event) {
         if (event.type == EventTypeEnum.ORDER) {

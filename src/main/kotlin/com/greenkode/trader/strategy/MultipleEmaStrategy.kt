@@ -35,7 +35,7 @@ class MultipleEmaStrategy(val dataHandler: DataHandler, val events: Queue<Event>
     }
 
     private fun sendSignal(symbol: Symbol, quantity: Double) {
-        events.add(SignalEvent(symbol, currentDate, OrderDirection.BUY, 0.2))
+        events.add(SignalEvent(symbol, currentDate, OrderDirection.LONG, 0.2))
     }
 
     private fun getBars(window: Int): BarSeries {

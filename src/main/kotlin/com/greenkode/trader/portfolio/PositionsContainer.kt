@@ -2,7 +2,6 @@ package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.Symbol
 import java.time.LocalDateTime
-import java.util.*
 
 open class PositionsContainer(
     private val symbols: List<Symbol>
@@ -15,22 +14,16 @@ open class PositionsContainer(
         return currentPositions
     }
 
-    fun getPositionsHistory(): List<Positions> {
-        return Collections.unmodifiableList(records);
-    }
-
     fun newRecord(timestamp: LocalDateTime) {
         currentPositions = Positions(timestamp, symbols)
         records.add(currentPositions)
     }
 
-    fun updateQuantity(symbol: Symbol, timestamp: LocalDateTime, quantity: Double) {
-        if(currentPositions.timestamp != timestamp)
-            newRecord(timestamp)
+    fun updateQuantity(symbol: Symbol, quantity: Double) {
         currentPositions.positions[symbol] = quantity
     }
 
-    fun getCurrentQuantity(): Double {
-        TODO("Not yet implemented")
+    fun getCurrentQuantity(symbol: Symbol): Double {
+        return currentPositions.positions.getOrDefault(symbol, 0.0)
     }
 }

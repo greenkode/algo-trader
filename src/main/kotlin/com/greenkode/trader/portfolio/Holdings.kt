@@ -5,27 +5,29 @@ import com.greenkode.trader.domain.ZERO
 
 import java.time.LocalDateTime;
 
-class Holdings(val timestamp: LocalDateTime? = null, symbols: List<Symbol>) {
+class Holdings(val timestamp: LocalDateTime? = null, symbols: List<Symbol>, initialCapital: Double) {
 
     private val holdings: MutableMap<Symbol, Double> = symbols.associateBy({ it }, { Double.ZERO }).toMutableMap()
-    private var total = 0.0
+    private var total = initialCapital
+    private var totalCommission = 0.0
+    private var cash = initialCapital
 
-    fun setHoldingAmount(symbol: Symbol, amount: Double) {
-        holdings[symbol] = amount
-        total += amount
+    fun setHoldingAmount(symbol: Symbol, cost: Double, commissions: Double) {
+        holdings[symbol] = cost - commissions
+        total -= (cost)
+        totalCommission += commissions
+        cash -= (cost + commissions)
     }
 
     fun getCommissions(): Double {
-        TODO("Not yet implemented")
+        return totalCommission
     }
 
     fun getCash(): Double {
-        TODO("Not yet implemented")
+        return total
     }
 
     fun getTotal(): Double {
-        TODO("Not yet implemented")
+        return total
     }
-
-
 }

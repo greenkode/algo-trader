@@ -13,9 +13,7 @@ import java.util.*
 class RebalancePortfolio(
     private val dataHandler: DataHandler,
     private val events: Queue<Event>,
-    private val riskManager: RiskManager,
     private var startDate: LocalDateTime?,
-    private val initialCapital: Double,
     private val positionsContainer: PositionsContainer,
     private val holdingsContainer: HoldingsContainer
 ) : Portfolio() {
@@ -59,8 +57,7 @@ class RebalancePortfolio(
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         positionsContainer.updateQuantity(
             fillEvent.symbol,
-            fillEvent.timestamp,
-            fillEvent.quantity * fillEvent.orderDirection.value
+            fillEvent.quantity * fillEvent.orderDirection.value - fillEvent.calculateCommission()
         )
     }
 
@@ -68,7 +65,7 @@ class RebalancePortfolio(
         val closePrice = getLatestClose(fillEvent.symbol)
         val cost = fillEvent.quantity * fillEvent.orderDirection.value * closePrice
 
-        holdingsContainer.updateHoldings(fillEvent.timestamp, cost, positionsContainer.getCurrentPositions())
+        holdingsContainer.updateHoldings(fillEvent.symbol, cost, fillEvent.calculateCommission())
 
         logger.info(
             "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
@@ -77,23 +74,23 @@ class RebalancePortfolio(
         )
     }
 
-    private fun generateNaiveOrder(signalEvent: SignalEvent): OrderEvent? {
+    private fun generateNaiveOrder(signal: SignalEvent): OrderEvent? {
 
-        val closePrice = getLatestClose(signalEvent.symbol)
-        val marketQuantity = (riskManager.sizePosition(signalEvent) * holdingsContainer.getCurrentTotal()) / closePrice
+        val closePrice = getLatestClose(signal.symbol)
+        val marketQuantity = (signal.strength * holdingsContainer.getCurrentTotal()) / closePrice
 
-        val currentQuantity = positionsContainer.getCurrentQuantity()
+        val currentQuantity = positionsContainer.getCurrentQuantity(signal.symbol)
         val orderType = OrderType.MKT
 
         var order: OrderEvent? = null
-        if (signalEvent.direction == OrderDirection.BUY) order =
-            createOrder(signalEvent, orderType, marketQuantity, closePrice)
+        if (signal.direction == OrderDirection.LONG) order =
+            createOrder(signal, orderType, marketQuantity, closePrice)
 
-        if (signalEvent.direction == OrderDirection.EXIT) {
+        if (signal.direction == OrderDirection.SHORT) {
             if (currentQuantity > Double.ZERO)
-                order = createOrder(signalEvent, orderType, currentQuantity, closePrice)
+                order = createOrder(signal, orderType, currentQuantity, closePrice)
             else if (currentQuantity < Double.ZERO)
-                order = createOrder(signalEvent, orderType, currentQuantity, closePrice)
+                order = createOrder(signal, orderType, currentQuantity, closePrice)
         }
         return order
     }

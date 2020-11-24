@@ -3,8 +3,8 @@ package com.greenkode.trader.strategy
 import com.greenkode.trader.data.DataHandler
 import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.Event
-import com.greenkode.trader.event.RebalanceEvent
 import com.greenkode.trader.event.SignalEvent
+import com.greenkode.trader.portfolio.RiskManager
 import org.apache.commons.math3.stat.regression.SimpleRegression
 import tech.tablesaw.api.*
 import java.time.LocalDateTime
@@ -12,7 +12,8 @@ import java.util.*
 import kotlin.math.exp
 import kotlin.math.pow
 
-class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<Event>) : Strategy() {
+class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<Event>, val riskManager: RiskManager) :
+    Strategy() {
 
     var bought = mutableMapOf<Symbol, Boolean>()
     lateinit var currentDate: LocalDateTime
@@ -31,6 +32,7 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
         if (event.type != EventTypeEnum.MARKET) return
 
         val window = 20
+        val portfolioSize = 10
         val series = getBars(window)
         if (series.count() < window) return
 
@@ -38,13 +40,13 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
 
         val rankingTable = momentumScore(series)
 
-        events.add(RebalanceEvent(rankingTable, series))
+        val weights = riskManager.allocateWeights(series, rankingTable)
 
-        dataHandler.symbols.forEach { symbol ->
+        weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
             if (rankingTable.getOrDefault(symbol, 0.0) > 40)
-                events.add(SignalEvent(symbol, currentDate, OrderDirection.BUY, 1.0))
+                events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.LONG, it) })
             else if (rankingTable.getOrDefault(symbol, 0.0) != 0.0)
-                events.add(SignalEvent(symbol, currentDate, OrderDirection.EXIT, 1.0))
+                events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.SHORT, it) })
         }
     }
 

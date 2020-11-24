@@ -7,8 +7,4 @@ import java.time.LocalDateTime
 class Positions(val timestamp: LocalDateTime, symbols: List<Symbol>) {
 
     val positions: MutableMap<Symbol, Double> = symbols.associateBy({ it }, { Double.ZERO }).toMutableMap()
-
-    fun setPositionQuantity(symbol: Symbol, quantity: Double) {
-        positions[symbol] = quantity
-    }
 }

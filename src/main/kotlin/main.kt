@@ -14,13 +14,12 @@ import java.util.*
 fun main() {
 
     val events: Queue<Event> = LinkedList()
-    val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
-    val strategy = MomentumRebalanceStrategy(dataHandler, events)
     val riskManager = RiskManager()
+    val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
+    val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager)
     val portfolio =
         RebalancePortfolio(
-            dataHandler, events, riskManager, null, 100000.0,
-            PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
+            dataHandler, events, null, PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
         )
     val broker = SimulatedExecutionHandler(events)
     val performance = Performance()
@@ -34,8 +33,6 @@ fun main() {
             if (event.type == EventTypeEnum.MARKET) {
                 strategy.calculateSignals(event)
                 portfolio.updateTimeIndex(event)
-            } else if (event.type == EventTypeEnum.REBALANCE) {
-                riskManager.allocateWeights(event)
             } else if (event.type == EventTypeEnum.SIGNAL)
                 portfolio.updateSignal(event)
             else if (event.type == EventTypeEnum.ORDER)

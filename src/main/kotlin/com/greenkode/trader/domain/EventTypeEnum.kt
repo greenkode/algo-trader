@@ -4,6 +4,5 @@ enum class EventTypeEnum {
     MARKET,
     SIGNAL,
     ORDER,
-    FILL,
-    REBALANCE
+    FILL
 }

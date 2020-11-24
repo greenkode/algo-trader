@@ -12,12 +12,8 @@ data class HoldingsContainer(
     private val symbols: List<Symbol>
 ) {
 
-
-    private var commissions = 0.0
-    private var total: Double = initialCapital
-
     private val records = mutableListOf<Holdings>()
-    private val currentHoldings = Holdings(null, symbols)
+    private val currentHoldings = Holdings(null, symbols, initialCapital)
 
     fun addHoldings(holdings: Holdings) {
         records.add(holdings)
@@ -28,22 +24,13 @@ data class HoldingsContainer(
     }
 
     fun newRecord(timestamp: LocalDateTime, positions: Positions, bars: Map<Symbol, Table>) {
-        val holdings = Holdings(timestamp, symbols)
+        val holdings = Holdings(timestamp, symbols, initialCapital)
         symbols.forEach { symbol ->
             val marketValue =
                 positions.positions[symbol]!! * getLatestClose(bars.getOrElse(symbol) { Table.create() })
-            holdings.setHoldingAmount(symbol, marketValue)
+            holdings.setHoldingAmount(symbol, marketValue, 0.0)
         }
         records.add(holdings)
-    }
-
-    fun updateHoldings(timestamp: LocalDateTime, cost: Double, positions: Positions) {
-        TODO("Implement logic")
-//        timestamp = fillEvent.timestamp,
-//        positions = currentHoldingsContainer.positions,
-//        commission = currentHoldingsContainer.commission + fillEvent.calculateCommission(),
-//        cash = currentHoldingsContainer.cash - (cost + fillEvent.calculateCommission()),
-//        total = currentHoldingsContainer.total - (cost + fillEvent.calculateCommission())
     }
 
     private fun getLatestClose(bars: Table): Double {
@@ -52,7 +39,11 @@ data class HoldingsContainer(
         return 0.0
     }
 
+    fun updateHoldings(symbol: Symbol, cost: Double, commissions: Double) {
+        currentHoldings.setHoldingAmount(symbol, cost, commissions)
+    }
+
     fun getCurrentTotal(): Double {
-        return total;
+        return currentHoldings.getTotal()
     }
 }

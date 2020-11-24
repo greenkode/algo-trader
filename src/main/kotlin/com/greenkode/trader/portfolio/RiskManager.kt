@@ -1,11 +1,7 @@
 package com.greenkode.trader.portfolio
 
-import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.domain.ZERO
-import com.greenkode.trader.event.Event
-import com.greenkode.trader.event.RebalanceEvent
-import com.greenkode.trader.event.SignalEvent
 import tech.tablesaw.aggregate.AggregateFunctions
 import tech.tablesaw.api.ColumnType
 import tech.tablesaw.api.DoubleColumn
@@ -13,18 +9,11 @@ import tech.tablesaw.api.Table
 
 class RiskManager {
 
-    private val weights = mutableMapOf<Symbol, Double>()
+    fun allocateWeights(series: Table, ranking: Map<Symbol, Double>): Map<Symbol, Double> {
 
-    fun sizePosition(signal: SignalEvent): Double {
-        return weights[signal.symbol] ?: Double.ZERO
-    }
+        val weights = mutableMapOf<Symbol, Double>()
 
-    fun allocateWeights(event: Event) {
-        if (event.type != EventTypeEnum.REBALANCE)
-            return
-        val series = (event as RebalanceEvent).series
-
-        event.rankingTable.forEach { (k, v) ->
+        ranking.forEach { (k, v) ->
             if (v < 40) {
                 weights[k] = Double.ZERO
                 series.removeColumns(k.name)
@@ -43,6 +32,8 @@ class RiskManager {
             val name = it.name().substring(it.name().indexOf('[') + 1, it.name().indexOf(']'))
             weights[Symbol(name)] = (it as DoubleColumn).divide(sum).get(0)
         }
+
+        return weights
     }
 
     private fun volatility(table: Table): Table {

@@ -32,7 +32,7 @@ class BuyAndHoldStrategy(val dataHandler: DataHandler, val events: Queue<Event>)
                     SignalEvent(
                         symbol,
                         bars.dateTimeColumn(DATA_COLUMN_TIMESTAMP).last(),
-                        OrderDirection.BUY,
+                        OrderDirection.LONG,
                         0.2
                     )
                 )
