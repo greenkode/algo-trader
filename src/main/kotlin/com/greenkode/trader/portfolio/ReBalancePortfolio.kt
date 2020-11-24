@@ -1,16 +1,18 @@
 package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.data.DataHandler
-import com.greenkode.trader.domain.*
+import com.greenkode.trader.domain.DATA_COLUMN_CLOSE
+import com.greenkode.trader.domain.DATA_COLUMN_TIMESTAMP
+import com.greenkode.trader.domain.EventTypeEnum
+import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
-import com.greenkode.trader.event.OrderEvent
 import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.logger.LoggerDelegate
 import java.time.LocalDateTime
 import java.util.*
 
-class RebalancePortfolio(
+class ReBalancePortfolio(
     private val dataHandler: DataHandler,
     private val events: Queue<Event>,
     private var startDate: LocalDateTime?,
@@ -20,6 +22,7 @@ class RebalancePortfolio(
 
     private val logger by LoggerDelegate()
     private val symbols = dataHandler.symbols
+    private val orderCreator = OrderCreator(holdingsContainer, positionsContainer)
 
 
     init {
@@ -44,7 +47,7 @@ class RebalancePortfolio(
 
     override fun updateSignal(event: Event) {
         if (event.type == EventTypeEnum.SIGNAL) {
-            val orderEvent = generateNaiveOrder(event as SignalEvent)
+            val orderEvent = orderCreator.generateNaiveOrder(event as SignalEvent, getLatestClose(event.symbol))
             if (orderEvent != null)
                 events.offer(orderEvent)
         }
@@ -56,6 +59,7 @@ class RebalancePortfolio(
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         positionsContainer.updateQuantity(
+            TODO("Why are you subtracting commission here")
             fillEvent.symbol,
             fillEvent.quantity * fillEvent.orderDirection.value - fillEvent.calculateCommission()
         )
@@ -74,47 +78,10 @@ class RebalancePortfolio(
         )
     }
 
-    private fun generateNaiveOrder(signal: SignalEvent): OrderEvent? {
-
-        val closePrice = getLatestClose(signal.symbol)
-        val marketQuantity = (signal.strength * holdingsContainer.getCurrentTotal()) / closePrice
-
-        val currentQuantity = positionsContainer.getCurrentQuantity(signal.symbol)
-        val orderType = OrderType.MKT
-
-        var order: OrderEvent? = null
-        if (signal.direction == OrderDirection.LONG) order =
-            createOrder(signal, orderType, marketQuantity, closePrice)
-
-        if (signal.direction == OrderDirection.SHORT) {
-            if (currentQuantity > Double.ZERO)
-                order = createOrder(signal, orderType, currentQuantity, closePrice)
-            else if (currentQuantity < Double.ZERO)
-                order = createOrder(signal, orderType, currentQuantity, closePrice)
-        }
-        return order
-    }
-
     private fun getLatestClose(symbol: Symbol): Double {
         val close = dataHandler.getLatestBars(symbol)
         if (!close.isEmpty)
             return close.first().getDouble(DATA_COLUMN_CLOSE)
         return 0.0
-    }
-
-    private fun createOrder(
-        signalEvent: SignalEvent,
-        orderType: OrderType,
-        currentQuantity: Double,
-        price: Double
-    ): OrderEvent {
-        return OrderEvent(
-            symbol = signalEvent.symbol,
-            orderType = orderType,
-            quantity = currentQuantity,
-            direction = signalEvent.direction,
-            timestamp = signalEvent.timestamp,
-            price = price
-        )
     }
 }

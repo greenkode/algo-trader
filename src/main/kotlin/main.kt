@@ -6,7 +6,7 @@ import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.portfolio.HoldingsContainer
 import com.greenkode.trader.portfolio.PositionsContainer
-import com.greenkode.trader.portfolio.RebalancePortfolio
+import com.greenkode.trader.portfolio.ReBalancePortfolio
 import com.greenkode.trader.portfolio.RiskManager
 import com.greenkode.trader.strategy.MomentumRebalanceStrategy
 import java.util.*
@@ -18,7 +18,7 @@ fun main() {
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
     val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager)
     val portfolio =
-        RebalancePortfolio(
+        ReBalancePortfolio(
             dataHandler, events, null, PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
         )
     val broker = SimulatedExecutionHandler(events)
@@ -30,15 +30,15 @@ fun main() {
 
         while (!events.isEmpty()) {
             val event = events.poll()
-            if (event.type == EventTypeEnum.MARKET) {
-                strategy.calculateSignals(event)
-                portfolio.updateTimeIndex(event)
-            } else if (event.type == EventTypeEnum.SIGNAL)
-                portfolio.updateSignal(event)
-            else if (event.type == EventTypeEnum.ORDER)
-                broker.executeOrder(event)
-            else if (event.type == EventTypeEnum.FILL)
-                portfolio.updateFill(event)
+            when (event.type) {
+                EventTypeEnum.MARKET -> {
+                    strategy.calculateSignals(event)
+                    portfolio.updateTimeIndex(event)
+                }
+                EventTypeEnum.SIGNAL -> portfolio.updateSignal(event)
+                EventTypeEnum.ORDER -> broker.executeOrder(event)
+                EventTypeEnum.FILL -> portfolio.updateFill(event)
+            }
         }
     }
 
