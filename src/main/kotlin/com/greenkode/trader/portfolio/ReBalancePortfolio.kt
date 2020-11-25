@@ -1,10 +1,7 @@
 package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.data.DataHandler
-import com.greenkode.trader.domain.DATA_COLUMN_CLOSE
-import com.greenkode.trader.domain.DATA_COLUMN_TIMESTAMP
-import com.greenkode.trader.domain.EventTypeEnum
-import com.greenkode.trader.domain.Symbol
+import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.SignalEvent
@@ -33,7 +30,7 @@ class ReBalancePortfolio(
     override fun updateTimeIndex(event: Event) {
         val bars = symbols.associateBy({ it }, { dataHandler.getLatestBars(it, 1) })
         val timestamp = bars[symbols[0]]?.first()?.getDateTime(DATA_COLUMN_TIMESTAMP)!!
-        positionsContainer.newRecord(timestamp)
+        positionsContainer.newRecord(timestamp, positionsContainer.getCurrentPositions())
         holdingsContainer.newRecord(timestamp, positionsContainer.getCurrentPositions(), bars)
     }
 
@@ -48,7 +45,7 @@ class ReBalancePortfolio(
     override fun updateSignal(event: Event) {
         if (event.type == EventTypeEnum.SIGNAL) {
             val orderEvent = orderCreator.generateNaiveOrder(event as SignalEvent, getLatestClose(event.symbol))
-            if (orderEvent != null)
+            if (orderEvent.action != OrderAction.NOTHING)
                 events.offer(orderEvent)
         }
     }
@@ -59,21 +56,20 @@ class ReBalancePortfolio(
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         positionsContainer.updateQuantity(
-            TODO("Why are you subtracting commission here")
             fillEvent.symbol,
-            fillEvent.quantity * fillEvent.orderDirection.value - fillEvent.calculateCommission()
+            fillEvent.quantity * fillEvent.orderAction.value
         )
     }
 
     private fun updateHoldingsFromFill(fillEvent: FillEvent) {
         val closePrice = getLatestClose(fillEvent.symbol)
-        val cost = fillEvent.quantity * fillEvent.orderDirection.value * closePrice
+        val cost = fillEvent.quantity * fillEvent.orderAction.value * closePrice
 
         holdingsContainer.updateHoldings(fillEvent.symbol, cost, fillEvent.calculateCommission())
 
         logger.info(
             "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
-                    "Direction=${fillEvent.orderDirection}, Quantity=${fillEvent.quantity}, Price=${closePrice}, " +
+                    "Direction=${fillEvent.orderAction}, Quantity=${fillEvent.quantity}, Price=${closePrice}, " +
                     "Commission=${fillEvent.calculateCommission()}, Fill Cost=${fillEvent.fillCost}"
         )
     }

@@ -1,14 +1,11 @@
 package com.greenkode.trader.event
 
-import com.greenkode.trader.domain.EventTypeEnum
-import com.greenkode.trader.domain.OrderDirection
-import com.greenkode.trader.domain.OrderType
-import com.greenkode.trader.domain.Symbol
+import com.greenkode.trader.domain.*
 import java.time.LocalDateTime
 
 class FillEvent(
     val symbol: Symbol, val timestamp: LocalDateTime, val exchange: String, val orderType: OrderType,
-    val quantity: Double, val orderDirection: OrderDirection, val fillCost: Double
+    val quantity: Double, val orderAction: OrderAction, val fillCost: Double
 ) : Event {
     override val type: EventTypeEnum
         get() = EventTypeEnum.FILL

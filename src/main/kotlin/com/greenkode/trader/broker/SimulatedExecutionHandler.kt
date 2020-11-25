@@ -18,7 +18,7 @@ class SimulatedExecutionHandler(private val events: Queue<Event>) : ExecutionHan
                 "Binance",
                 order.orderType,
                 order.quantity,
-                order.direction,
+                order.action,
                 order.quantity * order.price
             )
             events.offer(fillEvent)

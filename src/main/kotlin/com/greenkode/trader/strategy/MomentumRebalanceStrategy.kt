@@ -53,18 +53,19 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
     private fun getBars(window: Int): Table {
 
         val result = Table.create()
-        var addedDate = false
         dataHandler.symbols.forEach { symbol ->
             val table = dataHandler.getLatestBars(symbol, window = window)
             if (!table.isEmpty && table.count() == window) {
-                if (!addedDate) {
-                    result.addColumns(table.dateTimeColumn(DATA_COLUMN_TIMESTAMP))
-                    addedDate = true
-                }
+                addDateColumn(result, table.dateTimeColumn(DATA_COLUMN_TIMESTAMP))
                 result.addColumns(table.doubleColumn(DATA_COLUMN_CLOSE).setName(symbol.name))
             }
         }
         return result
+    }
+
+    private fun addDateColumn(table: Table, dateTimeColumn: DateTimeColumn) {
+        if (!table.columnNames().contains(dateTimeColumn.name()))
+            table.addColumns(dateTimeColumn)
     }
 
     private fun momentumScore(table: Table): Map<Symbol, Double> {

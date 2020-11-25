@@ -2,6 +2,7 @@ package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.DATA_COLUMN_CLOSE
 import com.greenkode.trader.domain.Symbol
+import com.greenkode.trader.domain.ZERO
 import tech.tablesaw.api.Table
 import java.time.LocalDateTime
 import java.util.*
@@ -13,7 +14,12 @@ data class HoldingsContainer(
 ) {
 
     private val records = mutableListOf<Holdings>()
-    private val currentHoldings = Holdings(null, symbols, initialCapital)
+    private var currentHoldings =
+        Holdings(null, symbols.associateBy({ it }, { Double.ZERO }).toMutableMap(), initialCapital)
+
+    init {
+        records.add(currentHoldings)
+    }
 
     fun addHoldings(holdings: Holdings) {
         records.add(holdings)
@@ -24,13 +30,13 @@ data class HoldingsContainer(
     }
 
     fun newRecord(timestamp: LocalDateTime, positions: Positions, bars: Map<Symbol, Table>) {
-        val holdings = Holdings(timestamp, symbols, initialCapital)
+        val values = mutableMapOf<Symbol, Double>()
         symbols.forEach { symbol ->
-            val marketValue =
-                positions.positions[symbol]!! * getLatestClose(bars.getOrElse(symbol) { Table.create() })
-            holdings.setHoldingAmount(symbol, marketValue, 0.0)
+            val marketValue = positions.positions[symbol]!! * getLatestClose(bars.getOrElse(symbol) { Table.create() })
+            values[symbol] = marketValue
         }
-        records.add(holdings)
+        this.currentHoldings = Holdings(timestamp, values, currentHoldings.getTotal())
+        records.add(currentHoldings)
     }
 
     private fun getLatestClose(bars: Table): Double {
@@ -45,5 +51,9 @@ data class HoldingsContainer(
 
     fun getCurrentTotal(): Double {
         return currentHoldings.getTotal()
+    }
+
+    fun getHoldingForSymbol(symbol: Symbol): Double {
+        return currentHoldings.holdings.getOrDefault(symbol, 0.0)
     }
 }
