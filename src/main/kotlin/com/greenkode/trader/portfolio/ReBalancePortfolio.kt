@@ -50,8 +50,16 @@ class ReBalancePortfolio(
         }
     }
 
-    override fun getHoldings(): List<Holdings> {
+    override fun getHistoricalHoldings(): List<Holdings> {
         return holdingsContainer.getHoldingsHistory()
+    }
+
+    override fun getCurrentHoldings(): Map<Symbol, Double> {
+        return holdingsContainer.getCurrentHoldings().holdings
+    }
+
+    override fun getCurrentPositions(): Map<Symbol, Double> {
+        return positionsContainer.getCurrentPositions().positions
     }
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {

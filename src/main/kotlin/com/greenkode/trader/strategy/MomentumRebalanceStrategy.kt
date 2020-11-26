@@ -4,19 +4,31 @@ import com.greenkode.trader.data.DataHandler
 import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.SignalEvent
+import com.greenkode.trader.portfolio.Portfolio
 import com.greenkode.trader.portfolio.RiskManager
 import org.apache.commons.math3.stat.regression.SimpleRegression
-import tech.tablesaw.api.*
+import tech.tablesaw.api.ColumnType
+import tech.tablesaw.api.DateTimeColumn
+import tech.tablesaw.api.DoubleColumn
+import tech.tablesaw.api.Table
 import java.time.LocalDateTime
 import java.util.*
 import kotlin.math.exp
 import kotlin.math.pow
 
-class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<Event>, val riskManager: RiskManager) :
+class MomentumRebalanceStrategy(
+    private val dataHandler: DataHandler,
+    private val events: Queue<Event>,
+    private val riskManager: RiskManager,
+    private val portfolio: Portfolio
+) :
     Strategy() {
 
     var bought = mutableMapOf<Symbol, Boolean>()
     lateinit var currentDate: LocalDateTime
+
+    private val window = 20
+    private val portfolioSize = 10
 
     init {
         calculateInitialBought()
@@ -31,8 +43,6 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
     override fun calculateSignals(event: Event) {
         if (event.type != EventTypeEnum.MARKET) return
 
-        val window = 20
-        val portfolioSize = 10
         val series = getBars(window)
         if (series.count() < window) return
 
@@ -42,11 +52,32 @@ class MomentumRebalanceStrategy(val dataHandler: DataHandler, val events: Queue<
 
         val weights = riskManager.allocateWeights(series, rankingTable)
 
+        sellFailedPositions(weights, rankingTable)
+
+        adjustKeptPositions(weights, rankingTable)
+    }
+
+    private fun sellFailedPositions(
+        weights: Map<Symbol, Double>,
+        rankingTable: Map<Symbol, Double>
+    ) {
         weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
-            if (rankingTable.getOrDefault(symbol, 0.0) > 40)
+            if (rankingTable.getOrDefault(symbol, 0.0) < 40 && portfolio.getCurrentPositions().getOrDefault(
+                    symbol,
+                    0.0
+                ) > 0.0
+            )
+                events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.EXIT, it) })
+        }
+    }
+
+    private fun adjustKeptPositions (
+        weights: Map<Symbol, Double>,
+        rankingTable: Map<Symbol, Double>
+    ) {
+        weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
+            if (rankingTable.getOrDefault(symbol, 0.0) >= 40)
                 events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.LONG, it) })
-            else if (rankingTable.getOrDefault(symbol, 0.0) != 0.0)
-                events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.SHORT, it) })
         }
     }
 

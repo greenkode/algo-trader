@@ -34,10 +34,10 @@ class OrderCreator(
                 createOrder(signal, orderType, marketQuantity, OrderAction.SELL, closePrice)
 
             signal.direction == OrderDirection.LONG && currentQuantity - marketQuantity > 0 -> order =
-                createOrder(signal, orderType, abs(currentQuantity - marketQuantity), OrderAction.BUY, closePrice)
+                createOrder(signal, orderType, abs(currentQuantity - marketQuantity), OrderAction.SELL, closePrice)
 
             signal.direction == OrderDirection.LONG && currentQuantity - marketQuantity < 0 -> order =
-                createOrder(signal, orderType, abs(currentQuantity - marketQuantity), OrderAction.SELL, closePrice)
+                createOrder(signal, orderType, abs(currentQuantity - marketQuantity), OrderAction.BUY, closePrice)
 
             signal.direction == OrderDirection.EXIT && currentQuantity > Double.ZERO -> order =
                 createOrder(signal, orderType, abs(currentQuantity), OrderAction.SELL, closePrice)

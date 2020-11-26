@@ -56,4 +56,8 @@ data class HoldingsContainer(
     fun getHoldingForSymbol(symbol: Symbol): Double {
         return currentHoldings.holdings.getOrDefault(symbol, 0.0)
     }
+
+    fun getCurrentHoldings(): Holdings {
+        return currentHoldings
+    }
 }

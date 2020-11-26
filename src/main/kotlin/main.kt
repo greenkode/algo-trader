@@ -16,11 +16,12 @@ fun main() {
     val events: Queue<Event> = LinkedList()
     val riskManager = RiskManager()
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
-    val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager)
     val portfolio =
         ReBalancePortfolio(
             dataHandler, events, null, PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
         )
+
+    val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager, portfolio)
     val broker = SimulatedExecutionHandler(events)
     val performance = Performance()
 
@@ -42,7 +43,7 @@ fun main() {
         }
     }
 
-    performance.createEquityCurve(portfolio.getHoldings())
+    performance.createEquityCurve(portfolio.getHistoricalHoldings())
     performance.printSummaryStats()
 }
 
