@@ -11,6 +11,7 @@ import tech.tablesaw.api.ColumnType
 import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
 import tech.tablesaw.api.Table
+import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
 import kotlin.math.exp
@@ -29,6 +30,7 @@ class MomentumRebalanceStrategy(
 
     private val window = 20
     private val portfolioSize = 10
+    private val minMomentum = BigDecimal.valueOf(40)
 
     init {
         calculateInitialBought()
@@ -58,25 +60,26 @@ class MomentumRebalanceStrategy(
     }
 
     private fun sellFailedPositions(
-        weights: Map<Symbol, Double>,
-        rankingTable: Map<Symbol, Double>
+        weights: Map<Symbol, BigDecimal>,
+        rankingTable: Map<Symbol, BigDecimal>
     ) {
         weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
-            if (rankingTable.getOrDefault(symbol, 0.0) < 40 && portfolio.getCurrentPositions().getOrDefault(
-                    symbol,
-                    0.0
-                ) > 0.0
+            if (rankingTable.getOrDefault(symbol, BigDecimal.ZERO) < minMomentum && portfolio.getCurrentPositions()
+                    .getOrDefault(
+                        symbol,
+                        BigDecimal.ZERO
+                    ) > BigDecimal.ZERO
             )
                 events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.EXIT, it) })
         }
     }
 
-    private fun adjustKeptPositions (
-        weights: Map<Symbol, Double>,
-        rankingTable: Map<Symbol, Double>
+    private fun adjustKeptPositions(
+        weights: Map<Symbol, BigDecimal>,
+        rankingTable: Map<Symbol, BigDecimal>
     ) {
         weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
-            if (rankingTable.getOrDefault(symbol, 0.0) >= 40)
+            if (rankingTable.getOrDefault(symbol, BigDecimal.ZERO) >= minMomentum)
                 events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.LONG, it) })
         }
     }
@@ -99,8 +102,8 @@ class MomentumRebalanceStrategy(
             table.addColumns(dateTimeColumn)
     }
 
-    private fun momentumScore(table: Table): Map<Symbol, Double> {
-        val result = mutableMapOf<Symbol, Double>()
+    private fun momentumScore(table: Table): Map<Symbol, BigDecimal> {
+        val result = mutableMapOf<Symbol, BigDecimal>()
         val logs = Table.create()
         table.columnsOfType(ColumnType.DOUBLE).forEach {
             logs.addColumns((it as DoubleColumn).log10().setName(it.name()))
@@ -109,7 +112,7 @@ class MomentumRebalanceStrategy(
             val reg = SimpleRegression(true)
             reg.addData(arrayOf(DoubleArray(table.count()) { i -> i + 1.0 }, (column as DoubleColumn).asDoubleArray()))
             val annualizedSlope = (exp(reg.slope).pow(365.0) - 1) * 100
-            result[Symbol(column.name())] = annualizedSlope * (reg.rSquare)
+            result[Symbol(column.name())] = BigDecimal.valueOf(annualizedSlope * (reg.rSquare))
         }
 
         return result.toList().sortedBy { it.second }.reversed().toMap()

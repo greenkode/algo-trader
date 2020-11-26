@@ -9,6 +9,7 @@ import com.greenkode.trader.portfolio.PositionsContainer
 import com.greenkode.trader.portfolio.ReBalancePortfolio
 import com.greenkode.trader.portfolio.RiskManager
 import com.greenkode.trader.strategy.MomentumRebalanceStrategy
+import java.math.BigDecimal
 import java.util.*
 
 fun main() {
@@ -18,7 +19,11 @@ fun main() {
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
     val portfolio =
         ReBalancePortfolio(
-            dataHandler, events, null, PositionsContainer(TOP_CRYPTOS), HoldingsContainer(10000.0, TOP_CRYPTOS)
+            dataHandler,
+            events,
+            null,
+            PositionsContainer(TOP_CRYPTOS),
+            HoldingsContainer(BigDecimal.valueOf(10000.0), TOP_CRYPTOS)
         )
 
     val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager, portfolio)

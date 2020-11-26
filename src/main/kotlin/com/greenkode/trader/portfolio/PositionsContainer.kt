@@ -1,7 +1,7 @@
 package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.Symbol
-import com.greenkode.trader.domain.ZERO
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 open class PositionsContainer(
@@ -10,7 +10,7 @@ open class PositionsContainer(
 
     private val records = mutableListOf<Positions>()
     private var currentPositions: Positions =
-        Positions(null, symbols.associateBy({ it }, { Double.ZERO }).toMutableMap())
+        Positions(null, symbols.associateBy({ it }, { BigDecimal.ZERO }).toMutableMap())
 
     fun getCurrentPositions(): Positions {
         return currentPositions
@@ -21,11 +21,11 @@ open class PositionsContainer(
         records.add(this.currentPositions)
     }
 
-    fun updateQuantity(symbol: Symbol, quantity: Double) {
+    fun updateQuantity(symbol: Symbol, quantity: BigDecimal) {
         currentPositions.positions[symbol] = quantity
     }
 
-    fun getQuantityForSymbol(symbol: Symbol): Double {
-        return currentPositions.positions.getOrDefault(symbol, 0.0)
+    fun getQuantityForSymbol(symbol: Symbol): BigDecimal {
+        return currentPositions.positions.getOrDefault(symbol, BigDecimal.ZERO)
     }
 }

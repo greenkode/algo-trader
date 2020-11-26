@@ -1,16 +1,17 @@
 package com.greenkode.trader.event
 
 import com.greenkode.trader.domain.*
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 class FillEvent(
     val symbol: Symbol, val timestamp: LocalDateTime, val exchange: String, val orderType: OrderType,
-    val quantity: Double, val orderAction: OrderAction, val fillCost: Double
+    val quantity: BigDecimal, val orderAction: OrderAction, val fillCost: BigDecimal
 ) : Event {
     override val type: EventTypeEnum
         get() = EventTypeEnum.FILL
 
-    fun calculateCommission(): Double {
-        return fillCost * 0.001
+    fun calculateCommission(): BigDecimal {
+        return fillCost * BigDecimal.valueOf(0.001)
     }
 }

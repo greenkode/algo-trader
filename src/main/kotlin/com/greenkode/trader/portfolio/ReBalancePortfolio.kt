@@ -6,6 +6,7 @@ import com.greenkode.trader.event.Event
 import com.greenkode.trader.event.FillEvent
 import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.logger.LoggerDelegate
+import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
 
@@ -54,38 +55,38 @@ class ReBalancePortfolio(
         return holdingsContainer.getHoldingsHistory()
     }
 
-    override fun getCurrentHoldings(): Map<Symbol, Double> {
+    override fun getCurrentHoldings(): Map<Symbol, BigDecimal> {
         return holdingsContainer.getCurrentHoldings().holdings
     }
 
-    override fun getCurrentPositions(): Map<Symbol, Double> {
+    override fun getCurrentPositions(): Map<Symbol, BigDecimal> {
         return positionsContainer.getCurrentPositions().positions
     }
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
         positionsContainer.updateQuantity(
             fillEvent.symbol,
-            fillEvent.quantity * fillEvent.orderAction.value
+            fillEvent.quantity * BigDecimal.valueOf(fillEvent.orderAction.value)
         )
     }
 
     private fun updateHoldingsFromFill(fillEvent: FillEvent) {
         val closePrice = getLatestClose(fillEvent.symbol)
-        val cost = fillEvent.quantity * fillEvent.orderAction.value * closePrice
+        val cost = fillEvent.quantity * BigDecimal.valueOf(fillEvent.orderAction.value) * closePrice
 
         holdingsContainer.updateHoldings(fillEvent.symbol, cost, fillEvent.calculateCommission())
 
         logger.info(
             "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
-                    "Direction=${fillEvent.orderAction}, Quantity=${fillEvent.quantity}, Price=${closePrice}, " +
-                    "Commission=${fillEvent.calculateCommission()}, Fill Cost=${fillEvent.fillCost}"
+                    "Direction=${fillEvent.orderAction}, Quantity=${fillEvent.quantity.toDouble()}, Price=${closePrice}, " +
+                    "Commission=${fillEvent.calculateCommission().toDouble()}, Fill Cost=${fillEvent.fillCost.toDouble()}"
         )
     }
 
-    private fun getLatestClose(symbol: Symbol): Double {
+    private fun getLatestClose(symbol: Symbol): BigDecimal {
         val close = dataHandler.getLatestBars(symbol)
         if (!close.isEmpty)
-            return close.first().getDouble(DATA_COLUMN_CLOSE)
-        return 0.0
+            return BigDecimal.valueOf(close.first().getDouble(DATA_COLUMN_CLOSE))
+        return BigDecimal.ZERO
     }
 }

@@ -2,20 +2,20 @@ package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.DATA_COLUMN_CLOSE
 import com.greenkode.trader.domain.Symbol
-import com.greenkode.trader.domain.ZERO
 import tech.tablesaw.api.Table
+import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
 
 
 data class HoldingsContainer(
-    private val initialCapital: Double,
+    private val initialCapital: BigDecimal,
     private val symbols: List<Symbol>
 ) {
 
     private val records = mutableListOf<Holdings>()
     private var currentHoldings =
-        Holdings(null, symbols.associateBy({ it }, { Double.ZERO }).toMutableMap(), initialCapital)
+        Holdings(null, symbols.associateBy({ it }, { BigDecimal.ZERO }).toMutableMap(), initialCapital)
 
     init {
         records.add(currentHoldings)
@@ -30,7 +30,7 @@ data class HoldingsContainer(
     }
 
     fun newRecord(timestamp: LocalDateTime, positions: Positions, bars: Map<Symbol, Table>) {
-        val values = mutableMapOf<Symbol, Double>()
+        val values = mutableMapOf<Symbol, BigDecimal>()
         symbols.forEach { symbol ->
             val marketValue = positions.positions[symbol]!! * getLatestClose(bars.getOrElse(symbol) { Table.create() })
             values[symbol] = marketValue
@@ -39,22 +39,22 @@ data class HoldingsContainer(
         records.add(currentHoldings)
     }
 
-    private fun getLatestClose(bars: Table): Double {
+    private fun getLatestClose(bars: Table): BigDecimal {
         if (!bars.isEmpty)
-            return bars.first().getDouble(DATA_COLUMN_CLOSE)
-        return 0.0
+            return BigDecimal.valueOf(bars.first().getDouble(DATA_COLUMN_CLOSE))
+        return BigDecimal.ZERO
     }
 
-    fun updateHoldings(symbol: Symbol, cost: Double, commissions: Double) {
+    fun updateHoldings(symbol: Symbol, cost: BigDecimal, commissions: BigDecimal) {
         currentHoldings.setHoldingAmount(symbol, cost, commissions)
     }
 
-    fun getCurrentTotal(): Double {
+    fun getCurrentTotal(): BigDecimal {
         return currentHoldings.getTotal()
     }
 
-    fun getHoldingForSymbol(symbol: Symbol): Double {
-        return currentHoldings.holdings.getOrDefault(symbol, 0.0)
+    fun getHoldingForSymbol(symbol: Symbol): BigDecimal {
+        return currentHoldings.holdings.getOrDefault(symbol, BigDecimal.ZERO)
     }
 
     fun getCurrentHoldings(): Holdings {

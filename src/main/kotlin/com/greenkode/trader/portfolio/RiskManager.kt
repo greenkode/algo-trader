@@ -1,21 +1,21 @@
 package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.Symbol
-import com.greenkode.trader.domain.ZERO
 import tech.tablesaw.aggregate.AggregateFunctions
 import tech.tablesaw.api.ColumnType
 import tech.tablesaw.api.DoubleColumn
 import tech.tablesaw.api.Table
+import java.math.BigDecimal
 
 class RiskManager {
 
-    fun allocateWeights(series: Table, ranking: Map<Symbol, Double>): Map<Symbol, Double> {
+    fun allocateWeights(series: Table, ranking: Map<Symbol, BigDecimal>): Map<Symbol, BigDecimal> {
 
-        val weights = mutableMapOf<Symbol, Double>()
+        val weights = mutableMapOf<Symbol, BigDecimal>()
 
         ranking.forEach { (k, v) ->
-            if (v < 40) {
-                weights[k] = Double.ZERO
+            if (v < BigDecimal.valueOf(40)) {
+                weights[k] = BigDecimal.ZERO
                 series.removeColumns(k.name)
             }
         }
@@ -30,7 +30,7 @@ class RiskManager {
 
         volatility.columnsOfType(ColumnType.DOUBLE).forEach {
             val name = it.name().substring(it.name().indexOf('[') + 1, it.name().indexOf(']'))
-            weights[Symbol(name)] = (it as DoubleColumn).divide(sum).get(0)
+            weights[Symbol(name)] = BigDecimal.valueOf((it as DoubleColumn).divide(sum).get(0))
         }
 
         return weights
