@@ -16,7 +16,7 @@ fun main() {
 
     val events: Queue<Event> = LinkedList()
     val riskManager = RiskManager()
-    val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS)
+    val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS, null)
     val portfolio =
         ReBalancePortfolio(
             dataHandler,

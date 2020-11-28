@@ -17,13 +17,20 @@ class OrderCreator(
         val marketQuantity =
             ((signal.strength * holdingsContainer.getCurrentTotal()) / closePrice + positionsContainer.getQuantityForSymbol(
                 signal.symbol
-            )) * BigDecimal.valueOf(1 - 0.001)
+            ))
 
         val currentQuantity = positionsContainer.getQuantityForSymbol(signal.symbol)
 
         val orderType = OrderType.MKT
 
-        var order = OrderEvent(signal.symbol, OrderType.MKT, BigDecimal.ZERO, OrderAction.NOTHING, signal.timestamp, BigDecimal.ZERO)
+        var order = OrderEvent(
+            signal.symbol,
+            OrderType.MKT,
+            BigDecimal.ZERO,
+            OrderAction.NOTHING,
+            signal.timestamp,
+            BigDecimal.ZERO
+        )
 
         when {
             signal.direction == OrderDirection.LONG && currentQuantity == BigDecimal.ZERO -> order =

@@ -12,9 +12,10 @@ import java.time.LocalDateTime
 import java.util.*
 
 class HistoricalCsvDailyDataHandler(
-    val events: Queue<Event>,
+    private val events: Queue<Event>,
     private val directory: String,
-    override val symbols: List<Symbol>
+    override val symbols: List<Symbol>,
+    private val startDateTime: LocalDateTime?
 ) : DataHandler {
 
     val logger by LoggerDelegate()
@@ -69,13 +70,17 @@ class HistoricalCsvDailyDataHandler(
     }
 
     override fun getEarliestStartDate(): LocalDateTime {
-        var earliestDate = LocalDateTime.MAX
-        symbolData.forEach { _, table ->
-            val date = table.first().getDateTime(DATA_COLUMN_TIMESTAMP)
-            earliestDate = if (date < earliestDate) date else earliestDate
-            val lDate = table.last().getDateTime(DATA_COLUMN_TIMESTAMP)
-            lastDate = if (lDate > lastDate) lDate else lastDate
+
+        return if(startDateTime!== null) startDateTime
+        else {
+            var earliestDate = LocalDateTime.MAX
+            symbolData.forEach { (_, table) ->
+                val date = table.first().getDateTime(DATA_COLUMN_TIMESTAMP)
+                earliestDate = if (date < earliestDate) date else earliestDate
+                val lDate = table.last().getDateTime(DATA_COLUMN_TIMESTAMP)
+                lastDate = if (lDate > lastDate) lDate else lastDate
+            }
+            earliestDate
         }
-        return earliestDate
     }
 }

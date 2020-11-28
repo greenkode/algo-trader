@@ -1,4 +1,4 @@
-package com.greenkode.trader.portfolio;
+package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.domain.Symbol;
 import java.math.BigDecimal
@@ -8,18 +8,16 @@ import java.time.LocalDateTime;
 class Holdings(
     val timestamp: LocalDateTime? = null,
     val holdings: MutableMap<Symbol, BigDecimal>,
-    initialCapital: BigDecimal
+    cash: BigDecimal
 ) {
 
-    private var total = initialCapital
     private var totalCommission = BigDecimal.ZERO
-    private var cash = initialCapital
+    private var cash = cash
 
     fun setHoldingAmount(symbol: Symbol, cost: BigDecimal, commission: BigDecimal) {
         holdings[symbol] = cost - commission
-        total -= (cost + commission)
         totalCommission += commission
-        cash -= (cost + commission)
+        cash -= cost
     }
 
     fun getCommissions(): BigDecimal {
@@ -27,10 +25,18 @@ class Holdings(
     }
 
     fun getCash(): BigDecimal {
-        return total
+        return cash
     }
 
     fun getTotal(): BigDecimal {
-        return total
+        return holdings.values.sumByBigDecimal { it } + cash
     }
+}
+
+fun <T> Iterable<T>.sumByBigDecimal(selector: (T) -> BigDecimal): BigDecimal {
+    var sum: BigDecimal = BigDecimal.ZERO
+    for (element in this) {
+        sum += selector(element)
+    }
+    return sum
 }

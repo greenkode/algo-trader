@@ -35,7 +35,7 @@ data class HoldingsContainer(
             val marketValue = positions.positions[symbol]!! * getLatestClose(bars.getOrElse(symbol) { Table.create() })
             values[symbol] = marketValue
         }
-        this.currentHoldings = Holdings(timestamp, values, currentHoldings.getTotal())
+        this.currentHoldings = Holdings(timestamp, values, currentHoldings.getCash())
         records.add(currentHoldings)
     }
 
@@ -59,5 +59,9 @@ data class HoldingsContainer(
 
     fun getCurrentHoldings(): Holdings {
         return currentHoldings
+    }
+
+    fun getCommissions(): BigDecimal {
+        return currentHoldings.getCommissions()
     }
 }
