@@ -12,9 +12,3 @@ const val EQUITY_CURVE_COMMISSION = "commission"
 const val EQUITY_CURVE_TOTAL = "total"
 const val EQUITY_CURVE_RETURNS = "returns"
 const val EQUITY_CURVE_CURVE = "equity_curve"
-
-
-val Double.Companion.ZERO: Double
-    get() {
-        return 0.0
-    }

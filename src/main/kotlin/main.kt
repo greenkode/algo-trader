@@ -4,6 +4,8 @@ import com.greenkode.trader.data.HistoricalCsvDailyDataHandler
 import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
+import com.greenkode.trader.event.OrderEvent
+import com.greenkode.trader.exception.InsufficientFundsException
 import com.greenkode.trader.portfolio.HoldingsContainer
 import com.greenkode.trader.portfolio.PositionsContainer
 import com.greenkode.trader.portfolio.ReBalancePortfolio
@@ -17,17 +19,13 @@ fun main() {
     val events: Queue<Event> = LinkedList()
     val riskManager = RiskManager()
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS, null)
-    val portfolio =
-        ReBalancePortfolio(
-            dataHandler,
-            events,
-            null,
-            PositionsContainer(TOP_CRYPTOS),
-            HoldingsContainer(BigDecimal.valueOf(10000.0), TOP_CRYPTOS)
-        )
+
+    val positionsContainer = PositionsContainer(TOP_CRYPTOS)
+    val holdingsContainer = HoldingsContainer(BigDecimal.valueOf(10000.0), TOP_CRYPTOS)
+    val portfolio = ReBalancePortfolio(dataHandler, events, null, positionsContainer, holdingsContainer)
 
     val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager, portfolio)
-    val broker = SimulatedExecutionHandler(events)
+    val broker = SimulatedExecutionHandler(events, holdingsContainer)
     val performance = Performance()
 
     while (dataHandler.continueBacktest()) {

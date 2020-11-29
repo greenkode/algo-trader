@@ -15,9 +15,9 @@ class Holdings(
     private var cash = cash
 
     fun setHoldingAmount(symbol: Symbol, cost: BigDecimal, commission: BigDecimal) {
-        holdings[symbol] = cost - commission
+        holdings[symbol] = holdings.getOrDefault(symbol, BigDecimal.ZERO) + cost - commission
         totalCommission += commission
-        cash -= cost
+        cash -= cost + commission
     }
 
     fun getCommissions(): BigDecimal {

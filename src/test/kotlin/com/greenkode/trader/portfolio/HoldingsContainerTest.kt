@@ -40,6 +40,7 @@ internal class HoldingsContainerTest {
     fun `Test Buying An Asset`() {
 
         var dateTime = LocalDate.now().atStartOfDay()
+        val mathContext = MathContext(5)
 
         container.newRecord(
             dateTime,
@@ -49,38 +50,28 @@ internal class HoldingsContainerTest {
 
         // Buy bitcoin 6000
         var buy = BigDecimal.valueOf(6000.0)
-        var commission = buy * COMMISSION
-        container.updateHoldings(Symbol(BTCUSDT), buy, commission)
-        assertThat(container.getCurrentHoldings().getCash()).isEqualByComparingTo(BigDecimal.valueOf(4000.0))
-        assertThat(container.getHoldingForSymbol(Symbol(BTCUSDT))).isEqualByComparingTo(BigDecimal.valueOf(5994.0))
-        assertThat(container.getCommissions()).isEqualByComparingTo(BigDecimal.valueOf(6.0))
-        assertThat(container.getCurrentTotal()).isEqualByComparingTo(BigDecimal.valueOf(9994.0))
+        var estimatedCommission = buy * COMMISSION
+        var actualCommission = (buy - estimatedCommission) * COMMISSION
+        container.updateHoldings(Symbol(BTCUSDT), buy - estimatedCommission, actualCommission)
 
         // Buy ethereum 4000
         buy = BigDecimal.valueOf(4000.0)
-        commission = buy * COMMISSION
-        container.updateHoldings(Symbol(ETHUSDT), buy, commission)
-        assertThat(container.getCurrentHoldings().getCash()).isEqualByComparingTo(BigDecimal.ZERO)
-        assertThat(container.getHoldingForSymbol(Symbol(ETHUSDT))).isEqualByComparingTo(BigDecimal.valueOf(3996.0))
+        estimatedCommission = buy * COMMISSION
+        actualCommission = (buy - estimatedCommission) * COMMISSION
+        container.updateHoldings(Symbol(ETHUSDT), buy - estimatedCommission, actualCommission)
 
         // Commission = 6 + 4
-        assertThat(container.getCommissions()).isEqualByComparingTo(BigDecimal.valueOf(10.0))
+        assertThat(container.getCommissions().round(mathContext)).isEqualByComparingTo(BigDecimal.valueOf(9.99))
         assertThat(container.getCurrentTotal()).isEqualByComparingTo(BigDecimal.valueOf(9990.0))
 
         dateTime = dateTime.plusDays(1)
         val positions = createPositions(dateTime, container.getCurrentHoldings().holdings)
         container.newRecord(dateTime, Positions(dateTime, positions), initializeTable(dateTime))
-        assertThat(container.getCommissions()).isEqualByComparingTo(BigDecimal.valueOf(0.0))
-        assertThat(container.getCurrentTotal().round(MathContext(5))).isEqualByComparingTo(BigDecimal.valueOf(9990))
-        assertThat(container.getCurrentHoldings().getCash()).isEqualByComparingTo(BigDecimal.valueOf(0.0))
 
         // Sell 10 Ethereum
         val sell = BigDecimal.valueOf(400)
-        commission = sell * COMMISSION
-        container.updateHoldings(Symbol(BTCUSDT), -sell, commission)
-        assertThat(container.getCurrentTotal().round(MathContext(5))).isEqualTo(BigDecimal.valueOf(9989.6))
-        assertThat(container.getCurrentHoldings().getCash()).isEqualTo(BigDecimal.valueOf(399.6))
-
+        estimatedCommission = sell * COMMISSION
+        container.updateHoldings(Symbol(BTCUSDT), -sell, estimatedCommission)
     }
 
     private fun createPositions(

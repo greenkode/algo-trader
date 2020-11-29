@@ -14,10 +14,8 @@ class OrderCreator(
 
     fun generateNaiveOrder(signal: SignalEvent, closePrice: BigDecimal): OrderEvent {
 
-        val marketQuantity =
-            ((signal.strength * holdingsContainer.getCurrentTotal()) / closePrice + positionsContainer.getQuantityForSymbol(
-                signal.symbol
-            ))
+        val marketQuantity = ((signal.strength * holdingsContainer.getCurrentTotal()) /
+                closePrice + positionsContainer.getQuantityForSymbol(signal.symbol))
 
         val currentQuantity = positionsContainer.getQuantityForSymbol(signal.symbol)
 
