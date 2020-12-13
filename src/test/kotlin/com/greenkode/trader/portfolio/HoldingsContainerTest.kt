@@ -25,7 +25,7 @@ internal class HoldingsContainerTest {
 
     @BeforeEach
     fun setup() {
-        container = HoldingsContainer(BigDecimal.valueOf(10000), symbols)
+        container = HoldingsContainer(BigDecimal.valueOf(10000), COMMISSION, symbols)
     }
 
     @Test

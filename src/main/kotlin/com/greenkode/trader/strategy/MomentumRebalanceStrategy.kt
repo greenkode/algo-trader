@@ -3,6 +3,7 @@ package com.greenkode.trader.strategy
 import com.greenkode.trader.data.DataHandler
 import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.Event
+import com.greenkode.trader.event.RebalanceEvent
 import com.greenkode.trader.event.SignalEvent
 import com.greenkode.trader.portfolio.Portfolio
 import com.greenkode.trader.portfolio.RiskManager
@@ -14,8 +15,6 @@ import tech.tablesaw.api.Table
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
-import kotlin.math.exp
-import kotlin.math.pow
 
 class MomentumRebalanceStrategy(
     private val dataHandler: DataHandler,
@@ -30,7 +29,7 @@ class MomentumRebalanceStrategy(
 
     private val window = 20
     private val portfolioSize = 10
-    private val minMomentum = BigDecimal.valueOf(40)
+    private val minMomentum = BigDecimal.valueOf(500)
 
     init {
         calculateInitialBought()
@@ -78,10 +77,18 @@ class MomentumRebalanceStrategy(
         weights: Map<Symbol, BigDecimal>,
         rankingTable: Map<Symbol, BigDecimal>
     ) {
+        val signals = mutableListOf<SignalEvent>()
         weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
             if (rankingTable.getOrDefault(symbol, BigDecimal.ZERO) >= minMomentum)
-                events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.LONG, it) })
+                signals.add(
+                    SignalEvent(
+                        symbol,
+                        currentDate,
+                        OrderDirection.LONG,
+                        weights.getOrElse(symbol) { BigDecimal.ZERO })
+                )
         }
+        events.add(RebalanceEvent(signals))
     }
 
     private fun getBars(window: Int): Table {
@@ -111,8 +118,9 @@ class MomentumRebalanceStrategy(
         logs.columns().forEach { column ->
             val reg = SimpleRegression(true)
             reg.addData(arrayOf(DoubleArray(table.count()) { i -> i + 1.0 }, (column as DoubleColumn).asDoubleArray()))
-            val annualizedSlope = (exp(reg.slope).pow(365.0) - 1) * 100
-            result[Symbol(column.name())] = BigDecimal.valueOf(annualizedSlope * (reg.rSquare))
+            val annualizedSlope = (reg.slope) * 100
+            result[Symbol(column.name())] =
+                BigDecimal.valueOf(if (annualizedSlope.isFinite()) annualizedSlope  * (reg.rSquare) else 0.0)
         }
 
         return result.toList().sortedBy { it.second }.reversed().toMap()

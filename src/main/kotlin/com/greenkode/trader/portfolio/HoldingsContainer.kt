@@ -8,7 +8,11 @@ import java.time.LocalDateTime
 import java.util.*
 
 
-data class HoldingsContainer(private val initialCapital: BigDecimal, private val symbols: List<Symbol>) {
+data class HoldingsContainer(
+    private val initialCapital: BigDecimal,
+    val commissionPercentage: BigDecimal,
+    private val symbols: List<Symbol>
+) {
 
     private val records = mutableListOf<Holdings>()
     private var currentHoldings =
@@ -50,10 +54,6 @@ data class HoldingsContainer(private val initialCapital: BigDecimal, private val
         return currentHoldings.getTotal()
     }
 
-    fun getHoldingForSymbol(symbol: Symbol): BigDecimal {
-        return currentHoldings.holdings.getOrDefault(symbol, BigDecimal.ZERO)
-    }
-
     fun getCurrentHoldings(): Holdings {
         return currentHoldings
     }
@@ -63,6 +63,6 @@ data class HoldingsContainer(private val initialCapital: BigDecimal, private val
     }
 
     fun getCurrentCash(): BigDecimal {
-        return currentHoldings.getCash()
+        return currentHoldings.getCash() * commissionPercentage
     }
 }

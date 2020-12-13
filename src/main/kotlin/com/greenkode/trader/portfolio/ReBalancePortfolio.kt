@@ -2,9 +2,7 @@ package com.greenkode.trader.portfolio
 
 import com.greenkode.trader.data.DataHandler
 import com.greenkode.trader.domain.*
-import com.greenkode.trader.event.Event
-import com.greenkode.trader.event.FillEvent
-import com.greenkode.trader.event.SignalEvent
+import com.greenkode.trader.event.*
 import com.greenkode.trader.logger.LoggerDelegate
 import java.math.BigDecimal
 import java.time.LocalDateTime
@@ -48,6 +46,12 @@ class ReBalancePortfolio(
             val orderEvent = orderCreator.generateNaiveOrder(event as SignalEvent, getLatestClose(event.symbol))
             if (orderEvent.action != OrderAction.NOTHING)
                 events.offer(orderEvent)
+        } else if (event.type == EventTypeEnum.REBALANCE) {
+            val orders = mutableListOf<OrderEvent>()
+            (event as RebalanceEvent).signals.forEach {
+                orders.add(orderCreator.generateNaiveOrder(it, getLatestClose(it.symbol)))
+            }
+            events.addAll(orders.sortedByDescending { it.action })
         }
     }
 
@@ -79,7 +83,9 @@ class ReBalancePortfolio(
         logger.info(
             "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
                     "Direction=${fillEvent.orderAction}, Quantity=${fillEvent.quantity.toDouble()}, Price=${closePrice}, " +
-                    "Commission=${fillEvent.calculateCommission().toDouble()}, Fill Cost=${fillEvent.fillCost.toDouble()}"
+                    "Commission=${
+                        fillEvent.calculateCommission().toDouble()
+                    }, Fill Cost=${fillEvent.fillCost.toDouble()}"
         )
     }
 
