@@ -9,6 +9,7 @@ import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.Table
 import java.io.File
 import java.time.LocalDateTime
+import java.time.temporal.TemporalUnit
 import java.util.*
 
 class HistoricalCsvDailyDataHandler(
@@ -51,13 +52,15 @@ class HistoricalCsvDailyDataHandler(
         return continueBacktest
     }
 
-    override fun updateBars() {
+    override fun updateBars(amount: Long, temporalUnit: TemporalUnit) {
         if (currentDate.isEqual(lastDate)) {
             continueBacktest = false
-            logger.info("Last date executed: ${currentDate}")
+            logger.info("Last date executed: $currentDate")
         } else {
             events.add(MarketEvent())
-            currentDate = currentDate.plusDays(1)
+            currentDate = currentDate.plus(amount, temporalUnit)
+            if(currentDate.isAfter(lastDate))
+                currentDate = lastDate
         }
     }
 

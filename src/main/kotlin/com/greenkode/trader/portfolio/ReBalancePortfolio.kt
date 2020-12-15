@@ -5,6 +5,8 @@ import com.greenkode.trader.domain.*
 import com.greenkode.trader.event.*
 import com.greenkode.trader.logger.LoggerDelegate
 import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.time.LocalDateTime
 import java.util.*
 
@@ -13,12 +15,12 @@ class ReBalancePortfolio(
     private val events: Queue<Event>,
     private var startDate: LocalDateTime?,
     private val positionsContainer: PositionsContainer,
-    private val holdingsContainer: HoldingsContainer
+    commissions: BigDecimal
 ) : Portfolio() {
 
     private val logger by LoggerDelegate()
     private val symbols = dataHandler.symbols
-    private val orderCreator = OrderCreator(holdingsContainer, positionsContainer)
+    private val orderCreator = OrderCreator(positionsContainer, commissions)
 
 
     init {
@@ -29,15 +31,15 @@ class ReBalancePortfolio(
     override fun updateTimeIndex(event: Event) {
         val bars = symbols.associateBy({ it }, { dataHandler.getLatestBars(it, 1) })
         val timestamp = bars[symbols[0]]?.first()?.getDateTime(DATA_COLUMN_TIMESTAMP)!!
-        positionsContainer.newRecord(timestamp, positionsContainer.getCurrentPositions())
-        holdingsContainer.newRecord(timestamp, positionsContainer.getCurrentPositions(), bars)
+        val closePrices = mutableMapOf<Symbol, BigDecimal>()
+        symbols.forEach { symbol -> closePrices[symbol] = getLatestClose(symbol) }
+        positionsContainer.newRecord(timestamp, closePrices)
     }
 
 
     override fun updateFill(event: Event) {
         if (event.type == EventTypeEnum.FILL) {
             updatePositionsFromFill(event as FillEvent)
-            updateHoldingsFromFill(event)
         }
     }
 
@@ -55,37 +57,27 @@ class ReBalancePortfolio(
         }
     }
 
-    override fun getHistoricalHoldings(): List<Holdings> {
-        return holdingsContainer.getHoldingsHistory()
-    }
-
-    override fun getCurrentHoldings(): Map<Symbol, BigDecimal> {
-        return holdingsContainer.getCurrentHoldings().holdings
-    }
-
-    override fun getCurrentPositions(): Map<Symbol, BigDecimal> {
-        return positionsContainer.getCurrentPositions().positions
+    override fun getCurrentPositions(): Positions {
+        return positionsContainer.getCurrentPositions()
     }
 
     private fun updatePositionsFromFill(fillEvent: FillEvent) {
-        positionsContainer.updateQuantity(
-            fillEvent.symbol,
-            fillEvent.quantity * BigDecimal.valueOf(fillEvent.orderAction.value)
+        positionsContainer.addPosition(
+            Position(
+                fillEvent.symbol,
+                fillEvent.quantity,
+                fillEvent.price,
+                fillEvent.calculateCommission()
+            )
         )
-    }
-
-    private fun updateHoldingsFromFill(fillEvent: FillEvent) {
-        val closePrice = getLatestClose(fillEvent.symbol)
-        val cost = fillEvent.quantity * BigDecimal.valueOf(fillEvent.orderAction.value) * closePrice
-
-        holdingsContainer.updateHoldings(fillEvent.symbol, cost, fillEvent.calculateCommission())
-
+        val mc = MathContext(8, RoundingMode.HALF_UP)
         logger.info(
             "${fillEvent.timestamp} - Order: Symbol=${fillEvent.symbol}, Type=${fillEvent.orderType}, " +
-                    "Direction=${fillEvent.orderAction}, Quantity=${fillEvent.quantity.toDouble()}, Price=${closePrice}, " +
-                    "Commission=${
-                        fillEvent.calculateCommission().toDouble()
-                    }, Fill Cost=${fillEvent.fillCost.toDouble()}"
+                    "Direction=${fillEvent.orderAction}, " +
+                    "Quantity=${fillEvent.quantity.round(mc)}, " +
+                    "Price=${fillEvent.price.round(mc)}, " +
+                    "Commission=${fillEvent.calculateCommission().round(mc)}, " +
+                    "Fill Cost=${(fillEvent.price * fillEvent.quantity).round(mc)}"
         )
     }
 
@@ -94,5 +86,9 @@ class ReBalancePortfolio(
         if (!close.isEmpty)
             return BigDecimal.valueOf(close.first().getDouble(DATA_COLUMN_CLOSE))
         return BigDecimal.ZERO
+    }
+
+    override fun getHistoricalPositions(): List<Positions> {
+        return positionsContainer.getHistoricalPositions()
     }
 }

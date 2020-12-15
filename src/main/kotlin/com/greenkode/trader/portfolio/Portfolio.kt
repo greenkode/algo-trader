@@ -12,9 +12,7 @@ abstract class Portfolio {
 
     abstract fun updateSignal(event: Event)
 
-    abstract fun getHistoricalHoldings(): List<Holdings>
+    abstract fun getCurrentPositions(): Positions
 
-    abstract fun getCurrentPositions(): Map<Symbol, BigDecimal>
-
-    abstract fun getCurrentHoldings(): Map<Symbol, BigDecimal>
+    abstract fun getHistoricalPositions(): List<Positions>
 }

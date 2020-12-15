@@ -4,12 +4,13 @@ import com.greenkode.trader.data.HistoricalCsvDailyDataHandler
 import com.greenkode.trader.domain.EventTypeEnum
 import com.greenkode.trader.domain.Symbol
 import com.greenkode.trader.event.Event
-import com.greenkode.trader.portfolio.HoldingsContainer
 import com.greenkode.trader.portfolio.PositionsContainer
 import com.greenkode.trader.portfolio.ReBalancePortfolio
 import com.greenkode.trader.portfolio.RiskManager
 import com.greenkode.trader.strategy.MomentumRebalanceStrategy
 import java.math.BigDecimal
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalUnit
 import java.util.*
 
 fun main() {
@@ -18,18 +19,23 @@ fun main() {
     val riskManager = RiskManager()
     val dataHandler = HistoricalCsvDailyDataHandler(events, DIRECTORY, TOP_CRYPTOS, null)
 
-    val commissionsPercentage = BigDecimal.valueOf(1 - 0.001)
-    val positionsContainer = PositionsContainer(TOP_CRYPTOS)
-    val holdingsContainer = HoldingsContainer(BigDecimal.valueOf(10000.0), commissionsPercentage, TOP_CRYPTOS)
-    val portfolio = ReBalancePortfolio(dataHandler, events, null, positionsContainer, holdingsContainer)
+    val commissions = BigDecimal.valueOf(0.001)
+    val positionsContainer = PositionsContainer(BigDecimal.valueOf(10000), dataHandler.currentDate)
+    val portfolio = ReBalancePortfolio(
+        dataHandler,
+        events,
+        null,
+        positionsContainer,
+        commissions
+    )
 
     val strategy = MomentumRebalanceStrategy(dataHandler, events, riskManager, portfolio)
-    val broker = SimulatedExecutionHandler(events, holdingsContainer)
+    val broker = SimulatedExecutionHandler(events, commissions)
     val performance = Performance()
 
     while (dataHandler.continueBacktest()) {
 
-        dataHandler.updateBars()
+        dataHandler.updateBars(1, ChronoUnit.WEEKS)
 
         while (!events.isEmpty()) {
             val event = events.poll()
@@ -46,7 +52,7 @@ fun main() {
         }
     }
 
-    performance.createEquityCurve(portfolio.getHistoricalHoldings())
+    performance.createEquityCurve(portfolio.getHistoricalPositions())
     performance.printSummaryStats()
 }
 
@@ -68,3 +74,12 @@ val TOP_CRYPTOS = listOf(
     "NEOUSDT",
     "ATOMUSDT"
 ).map { Symbol(it) }
+
+
+fun <T> Iterable<T>.sumByBigDecimal(selector: (T) -> BigDecimal): BigDecimal {
+    var sum: BigDecimal = BigDecimal.ZERO
+    for (element in this) {
+        sum += selector(element)
+    }
+    return sum
+}

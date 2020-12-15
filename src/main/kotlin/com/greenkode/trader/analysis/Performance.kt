@@ -2,7 +2,7 @@ package com.greenkode.trader.analysis
 
 import com.greenkode.trader.domain.*
 import com.greenkode.trader.logger.LoggerDelegate
-import com.greenkode.trader.portfolio.Holdings
+import com.greenkode.trader.portfolio.Positions
 import tech.tablesaw.api.DateTimeColumn
 import tech.tablesaw.api.DoubleColumn
 import tech.tablesaw.api.Table
@@ -49,13 +49,13 @@ class Performance {
     }
 
 
-    fun createEquityCurve(allHoldings: List<Holdings>): Table {
+    fun createEquityCurve(positions: List<Positions>): Table {
 
-        allHoldings.forEach { holding ->
+        positions.forEach { holding ->
             equityCurve.dateTimeColumn(DATA_COLUMN_TIMESTAMP).append(holding.timestamp)
             equityCurve.doubleColumn(EQUITY_CURVE_CASH).append(holding.getCash())
             equityCurve.doubleColumn(EQUITY_CURVE_COMMISSION).append(holding.getCommissions())
-            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.getTotal())
+            equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).append(holding.getCurrentValue())
         }
         val returns = equityCurve.doubleColumn(EQUITY_CURVE_TOTAL).pctChange().setName(EQUITY_CURVE_RETURNS)
         equityCurve.addColumns(returns)

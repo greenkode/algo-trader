@@ -7,14 +7,12 @@ import com.greenkode.trader.event.OrderEvent
 import com.greenkode.trader.event.SignalEvent
 import java.math.BigDecimal
 
-class OrderCreator(
-    private val holdingsContainer: HoldingsContainer,
-    private val positionsContainer: PositionsContainer
-) {
+class OrderCreator(private val positionsContainer: PositionsContainer, private val commissions: BigDecimal) {
 
     fun generateNaiveOrder(signal: SignalEvent, closePrice: BigDecimal): OrderEvent {
 
-        val marketQuantity = ((signal.strength * holdingsContainer.getCurrentTotal()) / closePrice) * holdingsContainer.commissionPercentage
+        val marketQuantity =
+            ((signal.strength * positionsContainer.getCurrentValue()) / closePrice) * (BigDecimal.valueOf(1) - commissions)
 
         val currentQuantity = positionsContainer.getQuantityForSymbol(signal.symbol)
 

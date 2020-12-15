@@ -24,22 +24,11 @@ class MomentumRebalanceStrategy(
 ) :
     Strategy() {
 
-    var bought = mutableMapOf<Symbol, Boolean>()
-    lateinit var currentDate: LocalDateTime
+    private lateinit var currentDate: LocalDateTime
 
     private val window = 20
     private val portfolioSize = 10
     private val minMomentum = BigDecimal.valueOf(500)
-
-    init {
-        calculateInitialBought()
-    }
-
-    private fun calculateInitialBought() {
-        dataHandler.symbols.forEach { symbol ->
-            bought[symbol] = false
-        }
-    }
 
     override fun calculateSignals(event: Event) {
         if (event.type != EventTypeEnum.MARKET) return
@@ -64,10 +53,7 @@ class MomentumRebalanceStrategy(
     ) {
         weights.keys.filterIndexed { index, _ -> index < portfolioSize }.forEach { symbol ->
             if (rankingTable.getOrDefault(symbol, BigDecimal.ZERO) < minMomentum && portfolio.getCurrentPositions()
-                    .getOrDefault(
-                        symbol,
-                        BigDecimal.ZERO
-                    ) > BigDecimal.ZERO
+                    .getQuantity(symbol) > BigDecimal.ZERO
             )
                 events.add(weights[symbol]?.let { SignalEvent(symbol, currentDate, OrderDirection.EXIT, it) })
         }
@@ -120,7 +106,7 @@ class MomentumRebalanceStrategy(
             reg.addData(arrayOf(DoubleArray(table.count()) { i -> i + 1.0 }, (column as DoubleColumn).asDoubleArray()))
             val annualizedSlope = (reg.slope) * 100
             result[Symbol(column.name())] =
-                BigDecimal.valueOf(if (annualizedSlope.isFinite()) annualizedSlope  * (reg.rSquare) else 0.0)
+                BigDecimal.valueOf(if (annualizedSlope.isFinite()) annualizedSlope * (reg.rSquare) else 0.0)
         }
 
         return result.toList().sortedBy { it.second }.reversed().toMap()
